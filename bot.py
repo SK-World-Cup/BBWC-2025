@@ -1,53 +1,23 @@
-import os
-import json
 import discord
 from discord.ext import commands
-import gspread
-from google.oauth2.service_account import Credentials
+import os
 
-# ---- Discord Setup ----
-TOKEN = os.getenv("DISCORD_TOKEN")
-PREFIX = "!"
+TOKEN = os.getenv("TOKEN")  # make sure your token is in an environment variable
 
+# Use default intents only (no privileged intents)
 intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
-# ---- Google Sheets Setup ----
-creds_json = os.getenv("GOOGLE_CREDS_JSON")
-sheet_id = os.getenv("GOOGLE_SHEET_ID")
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-if not creds_json or not sheet_id:
-    raise RuntimeError("Missing GOOGLE_CREDS_JSON or GOOGLE_SHEET_ID environment variables!")
-
-creds_info = json.loads(creds_json)
-creds = Credentials.from_service_account_info(
-    creds_info,
-    scopes=["https://www.googleapis.com/auth/spreadsheets"]
-)
-gc = gspread.authorize(creds)
-sheet = gc.open_by_key(sheet_id)
-
-# ---- Events ----
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
+    print(f"Logged in as {bot.user}")
 
-# ---- Basic Commands ----
-@bot.command(name="ping")
+# Example simple command
+@bot.command()
 async def ping(ctx):
     await ctx.send("Pong!")
 
-@bot.command(name="sheet_test")
-async def sheet_test(ctx):
-    """Reads cell A1 from the first sheet (for testing)."""
-    try:
-        ws = sheet.sheet1
-        value = ws.acell("A1").value
-        await ctx.send(f"Cell A1 = {value}")
-    except Exception as e:
-        await ctx.send(f"Error reading sheet: {e}")
-
-# ---- Run Bot ----
 bot.run(TOKEN)
+
 
