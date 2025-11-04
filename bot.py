@@ -66,48 +66,37 @@ async def ping(ctx):
 
 # You can add more commands here that interact with Google Sheets
 @bot.command(name="player")
-async def player(ctx, *, player_name: str):
-    """Show a player's key stats from the 'Players' sheet."""
+async def player(ctx, *, name: str):
     try:
         ws = sheet.worksheet("PLAYERS")
-        data = ws.get_all_records()
+        data = ws.get_all_values()
 
-        # Case-insensitive search
-        player = next(
-            (p for p in data if p["Player"].strip().lower() == player_name.lower()), None
+        # Extract header and rows
+        header = data[0]
+        rows = data[1:]
+
+        # Find the player's row (case-insensitive match)
+        player_row = next((r for r in rows if r[2].strip().lower() == name.lower()), None)
+
+        if not player_row:
+            await ctx.send(f"❌ Player '{name}' not found.")
+            return
+
+        # Build stats message (adjusted to your column order)
+        msg = (
+            f"**{player_row[2]}** ({player_row[4]})\n"
+            f"Games: {player_row[5]} | Wins: {player_row[6]} | Draws: {player_row[7]} | Losses: {player_row[8]}\n"
+            f"Goals: {player_row[9]} | Assists: {player_row[10]}\n"
+            f"Goals For: {player_row[11]} | Goals Against: {player_row[12]} | Clean Sheets: {player_row[13]}\n"
+            f"Goal Diff: {player_row[14]}\n"
+            f"G/Game: {player_row[18]} | A/Game: {player_row[19]}"
         )
 
-        if player:
-            embed = discord.Embed(
-                title=f"🏒 {player['Player']}",
-                description=f"Team: **{player.get('Team', 'N/A')}**",
-                color=discord.Color.blue()
-            )
-
-            # Focused set of meaningful stats
-            stats = {
-                "Games Played": player.get('Games Played', '—'),
-                "Wins": player.get('Wins', '—'),
-                "Draws": player.get('Draws', '—'),
-                "Losses": player.get('Losses', '—'),
-                "Goals": player.get('Goals', '—'),
-                "Assists": player.get('Assists', '—'),
-                "Clean Sheets": player.get('Clean Sheets', '—'),
-                "Goal Diff.": player.get('Goal Diff.', '—'),
-                "Goals/Game": player.get('Goals/Game', '—'),
-                "Assists/Game": player.get('Assists/Game', '—')
-            }
-
-            for stat, value in stats.items():
-                embed.add_field(name=stat, value=value if value != "" else "—", inline=True)
-
-            await ctx.send(embed=embed)
-
-        else:
-            await ctx.send(f"❌ Player **{player_name}** not found in the sheet.")
+        await ctx.send(msg)
 
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching player data: {e}")
+
 
 # Example: read first cell
 @bot.command()
