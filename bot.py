@@ -1,47 +1,65 @@
+# bot.py
 import os
 import discord
 from discord.ext import commands
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from flask import Flask
-from threading import Thread
 
-# ====== Discord Bot Setup ======
-intents = discord.Intents.default()
-intents.message_content = True  # required for ! commands
-
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-# ====== Google Sheets Setup ======
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_file = "credentials.json"  # make sure this file is in your repo
-credentials = ServiceAccountCredentials.from_json_keyfile_name(creds_file, scope)
-gc = gspread.authorize(credentials)
-
-# Replace with your actual Sheet ID
-sheet_id = os.getenv("SHEET_ID")  
-sheet = gc.open_by_key(sheet_id)
-
-# ====== Commands ======
-@bot.command()
-async def ping(ctx):
-    await ctx.send("Pong!")
-
-# ====== Flask Webserver ======
+# ------------------------
+# Web server for Render
+# ------------------------
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Bot is alive!", 200
+    return "Bot is alive", 200
 
-def run_webserver():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+# Detect Render port or default to 5000
+port = int(os.environ.get("PORT", 5000))
 
-# Run Flask in a separate thread so bot and webserver run together
-Thread(target=run_webserver).start()
+# ------------------------
+# Discord Bot setup
+# ------------------------
+TOKEN = os.environ.get("DISCORD_TOKEN")  # set this in Render's environment variables
+intents = discord.Intents.default()
+# Don't enable privileged intents
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ====== Run Bot ======
-TOKEN = os.getenv("DISCORD_TOKEN")
-bot.run(TOKEN)
+# ------------------------
+# Google Sheets setup
+# ------------------------
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
+]
 
+# Make sure your credentials file is uploaded as 'credentials.json'
+creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+gc = gspread.authorize(creds)
+
+# Example: Open a sheet by key
+SHEET_ID = os.environ.get("SHEET_ID")  # store in Render env vars
+try:
+    sheet = gc.open_by_key(SHEET_ID)
+except Exception as e:
+    print(f"Error accessing sheet: {e}")
+    sheet = None
+
+# ------------------------
+# Discord Commands
+# ------------------------
+@bot.command()
+async def ping(ctx):
+    await ctx.send("Pong!")
+
+# ------------------------
+# Run both Flask and Discord
+# ------------------------
+def run_flask():
+    from threading import Thread
+    Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
+
+if __name__ == "__main__":
+    run_flask()
+    bot.run(TOKEN)
