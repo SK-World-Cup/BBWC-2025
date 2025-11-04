@@ -1,67 +1,47 @@
+import os
 import discord
 from discord.ext import commands
-import os
 import gspread
-from google.oauth2.service_account import Credentials
-import time
+from oauth2client.service_account import ServiceAccountCredentials
+from flask import Flask
+from threading import Thread
 
-TOKEN = os.getenv("TOKEN")
-SHEET_ID = os.getenv("SHEET_ID")
-GOOGLE_CREDS = os.getenv("GOOGLE_CREDS_JSON")  # JSON string of your service account
-
-# Discord bot setup without privileged intents
+# ====== Discord Bot Setup ======
 intents = discord.Intents.default()
+intents.message_content = True  # required for ! commands
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Google Sheets setup
-scopes = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
+# ====== Google Sheets Setup ======
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds_file = "credentials.json"  # make sure this file is in your repo
+credentials = ServiceAccountCredentials.from_json_keyfile_name(creds_file, scope)
+gc = gspread.authorize(credentials)
 
-try:
-    creds = Credentials.from_service_account_info(eval(GOOGLE_CREDS), scopes=scopes)
-    gc = gspread.authorize(creds)
-    sheet = gc.open_by_key(SHEET_ID).sheet1
-except Exception as e:
-    print(f"Error loading Google Sheet: {e}")
-    sheet = None
+# Replace with your actual Sheet ID
+sheet_id = os.getenv("SHEET_ID")  
+sheet = gc.open_by_key(sheet_id)
 
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}")
-
-# Ping command to check latency
+# ====== Commands ======
 @bot.command()
 async def ping(ctx):
-    start = time.perf_counter()
-    msg = await ctx.send("Pong!")
-    end = time.perf_counter()
-    latency_ms = (end - start) * 1000
-    await msg.edit(content=f"Pong! Response time: {latency_ms:.2f}ms")
+    await ctx.send("Pong!")
 
-# Read a cell
-@bot.command()
-async def readcell(ctx, cell="A1"):
-    if sheet:
-        try:
-            value = sheet.acell(cell).value
-            await ctx.send(f"Value at {cell}: {value}")
-        except Exception as e:
-            await ctx.send(f"Error reading cell: {e}")
-    else:
-        await ctx.send("Google Sheet not loaded.")
+# ====== Flask Webserver ======
+app = Flask(__name__)
 
-# Write to a cell
-@bot.command()
-async def writecell(ctx, cell, *, value):
-    if sheet:
-        try:
-            sheet.update(cell, value)
-            await ctx.send(f"Updated {cell} to {value}")
-        except Exception as e:
-            await ctx.send(f"Error updating cell: {e}")
-    else:
-        await ctx.send("Google Sheet not loaded.")
+@app.route("/")
+def home():
+    return "Bot is alive!", 200
 
+def run_webserver():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
+
+# Run Flask in a separate thread so bot and webserver run together
+Thread(target=run_webserver).start()
+
+# ====== Run Bot ======
+TOKEN = os.getenv("DISCORD_TOKEN")
 bot.run(TOKEN)
+
