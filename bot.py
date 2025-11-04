@@ -65,6 +65,50 @@ async def ping(ctx):
     await ctx.send(f"Pong! Latency: {latency_ms}ms")
 
 # You can add more commands here that interact with Google Sheets
+@bot.command(name="player")
+async def player(ctx, *, player_name: str):
+    """Show a player's key stats from the 'Players' sheet."""
+    try:
+        ws = sheet.worksheet("PLAYERS")
+        data = ws.get_all_records()
+
+        # Case-insensitive search
+        player = next(
+            (p for p in data if p["Player"].strip().lower() == player_name.lower()), None
+        )
+
+        if player:
+            embed = discord.Embed(
+                title=f"🏒 {player['Player']}",
+                description=f"Team: **{player.get('Team', 'N/A')}**",
+                color=discord.Color.blue()
+            )
+
+            # Focused set of meaningful stats
+            stats = {
+                "Games Played": player.get('Games Played', '—'),
+                "Wins": player.get('Wins', '—'),
+                "Draws": player.get('Draws', '—'),
+                "Losses": player.get('Losses', '—'),
+                "Goals": player.get('Goals', '—'),
+                "Assists": player.get('Assists', '—'),
+                "Clean Sheets": player.get('Clean Sheets', '—'),
+                "Goal Diff.": player.get('Goal Diff.', '—'),
+                "Goals/Game": player.get('Goals/Game', '—'),
+                "Assists/Game": player.get('Assists/Game', '—')
+            }
+
+            for stat, value in stats.items():
+                embed.add_field(name=stat, value=value if value != "" else "—", inline=True)
+
+            await ctx.send(embed=embed)
+
+        else:
+            await ctx.send(f"❌ Player **{player_name}** not found in the sheet.")
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Error fetching player data: {e}")
+
 # Example: read first cell
 @bot.command()
 async def read_sheet(ctx):
