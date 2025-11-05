@@ -141,7 +141,7 @@ async def standings(ctx):
         sorted_data = sorted(parsed, key=lambda x: x["pts"], reverse=True)
 
         # Build leaderboard text
-        msg = "**🏆 TOURNAMENT STANDINGS 🏆**\n"
+        msg = "**🏆 WORLD CUP 2025 STANDINGS 🏆**\n"
         msg += "```"
         msg += f"{'Rank':<5}{'Team':<18}{'GP':<4}{'W':<4}{'D':<4}{'L':<4}{'GF':<4}{'GA':<4}{'GD':<5}{'PTS':<5}\n"
         msg += "-" * 60 + "\n"
