@@ -97,6 +97,64 @@ async def player(ctx, *, name: str):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching player data: {e}")
 
+@bot.command(name="standings")
+async def standings(ctx):
+    """Shows the top 10 teams in the tournament standings."""
+    try:
+        sheet_data = sheet.worksheet("GROUP_STAGE")
+        all_rows = sheet_data.get_all_values()
+
+        # Headers and actual data (adjusted to your described structure)
+        headers = all_rows[6]   # Row 7 in Sheets (0-index)
+        data = all_rows[7:17]   # Rows 8–17
+
+        # Find index positions for columns
+        team_idx = headers.index("Team")
+        gp_idx = headers.index("GP")
+        w_idx = headers.index("W")
+        d_idx = headers.index("D")
+        l_idx = headers.index("L")
+        gf_idx = headers.index("GF")
+        ga_idx = headers.index("GA")
+        gd_idx = headers.index("GD")
+        pts_idx = headers.index("PTS")
+
+        # Parse data and sort by PTS descending
+        parsed = []
+        for row in data:
+            try:
+                pts = int(row[pts_idx])
+            except ValueError:
+                pts = 0
+            parsed.append({
+                "team": row[team_idx],
+                "gp": row[gp_idx],
+                "w": row[w_idx],
+                "d": row[d_idx],
+                "l": row[l_idx],
+                "gf": row[gf_idx],
+                "ga": row[ga_idx],
+                "gd": row[gd_idx],
+                "pts": pts
+            })
+
+        sorted_data = sorted(parsed, key=lambda x: x["pts"], reverse=True)
+
+        # Build leaderboard text
+        msg = "**🏆 TOURNAMENT STANDINGS 🏆**\n"
+        msg += "```"
+        msg += f"{'Rank':<5}{'Team':<18}{'GP':<4}{'W':<4}{'D':<4}{'L':<4}{'GF':<4}{'GA':<4}{'GD':<5}{'PTS':<5}\n"
+        msg += "-" * 60 + "\n"
+        for i, team in enumerate(sorted_data[:10], start=1):
+            msg += f"{i:<5}{team['team'][:16]:<18}{team['gp']:<4}{team['w']:<4}{team['d']:<4}{team['l']:<4}{team['gf']:<4}{team['ga']:<4}{team['gd']:<5}{team['pts']:<5}\n"
+        msg += "```"
+
+        await ctx.send(msg)
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Error fetching standings: {e}")
+
+
 
 # Example: read first cell
 @bot.command()
