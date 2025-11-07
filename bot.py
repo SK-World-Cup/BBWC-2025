@@ -164,25 +164,13 @@ async def team(ctx, *, team_name: str):
 
         # ---- Get Player List ----
         all_players = players_ws.get_all_values()
-
-        # find the header row containing both "Player" and "Team"
-        header_row_index = None
-        for i, row in enumerate(all_players[:10]):  # check first 10 rows
-            if "Player" in row and "Team" in row:
-                header_row_index = i
-                break
-
-        if header_row_index is None:
-            await ctx.send("⚠️ Couldn't find Player/Team headers in the PLAYERS sheet.")
-            return
-
-        headers = all_players[header_row_index]
+        headers = all_players[3]  # Row 4 in the sheet
         player_col = headers.index("Player")
         team_col = headers.index("Team")
 
         players = [
             row[player_col]
-            for row in all_players[header_row_index + 1 :]
+            for row in all_players[4:]
             if len(row) > team_col and row[team_col].strip().lower() == team_name.lower()
         ]
 
