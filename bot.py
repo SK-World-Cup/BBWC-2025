@@ -168,8 +168,8 @@ async def team(ctx, *, team_name: str):
         player_col = headers.index("player")
         team_col = headers.index("team")
         gp_col = headers.index("gp")
-        goals_col = headers.index("goals")
-        assists_col = headers.index("assists")
+        goals_col = headers.index("g")
+        assists_col = headers.index("a")
 
         players_data = []
         for row in all_players[4:]:
@@ -210,8 +210,7 @@ async def team(ctx, *, team_name: str):
 
         # ---- Build Message ----
         msg = f"**🏒 {team_name.upper()} TEAM SUMMARY 🏒**\n\n"
-        msg += "__Players:__\n"
-        msg += "\n".join(players_data) + "\n\n"
+        msg += "__Players:__\n" + "\n".join(players_data) + "\n\n"
 
         if totals:
             msg += "__Team Totals:__\n"
