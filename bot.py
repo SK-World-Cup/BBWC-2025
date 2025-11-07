@@ -156,7 +156,7 @@ async def standings(ctx):
 
 @bot.command(name="team")
 async def team(ctx, *, team_name: str):
-    """Shows all players from a team and that team's overall stats."""
+    """Shows all players from a team with stats and the team's overall totals."""
     try:
         players_ws = sheet.worksheet("PLAYERS")
         standings_ws = sheet.worksheet("GROUP_STAGE")
@@ -164,16 +164,23 @@ async def team(ctx, *, team_name: str):
         # ---- Get Player List ----
         all_players = players_ws.get_all_values()
         headers = [h.strip().lower() for h in all_players[3]]  # row 4
+
         player_col = headers.index("player")
         team_col = headers.index("team")
+        gp_col = headers.index("gp")
+        goals_col = headers.index("goals")
+        assists_col = headers.index("assists")
 
-        players = [
-            row[player_col]
-            for row in all_players[4:]
-            if len(row) > team_col and row[team_col].strip().lower() == team_name.lower()
-        ]
+        players_data = []
+        for row in all_players[4:]:
+            if len(row) > team_col and row[team_col].strip().lower() == team_name.lower():
+                player_name = row[player_col]
+                gp = row[gp_col] if len(row) > gp_col else "0"
+                g = row[goals_col] if len(row) > goals_col else "0"
+                a = row[assists_col] if len(row) > assists_col else "0"
+                players_data.append(f"{player_name}: {gp} GP | {g} G | {a} A")
 
-        if not players:
+        if not players_data:
             await ctx.send(f"⚠️ No players found for **{team_name}**.")
             return
 
@@ -203,7 +210,8 @@ async def team(ctx, *, team_name: str):
 
         # ---- Build Message ----
         msg = f"**🏒 {team_name.upper()} TEAM SUMMARY 🏒**\n\n"
-        msg += "__Players:__\n" + ", ".join(players) + "\n\n"
+        msg += "__Players:__\n"
+        msg += "\n".join(players_data) + "\n\n"
 
         if totals:
             msg += "__Team Totals:__\n"
