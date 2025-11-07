@@ -158,15 +158,14 @@ async def standings(ctx):
 async def team(ctx, *, team_name: str):
     """Shows all players from a team and that team's overall stats."""
     try:
-        # Access both sheets
         players_ws = sheet.worksheet("PLAYERS")
         standings_ws = sheet.worksheet("GROUP_STAGE")
 
         # ---- Get Player List ----
         all_players = players_ws.get_all_values()
-        headers = all_players[3]  # Row 4 in the sheet
-        player_col = headers.index("Player")
-        team_col = headers.index("Team")
+        headers = [h.strip().lower() for h in all_players[3]]  # row 4
+        player_col = headers.index("player")
+        team_col = headers.index("team")
 
         players = [
             row[player_col]
@@ -178,36 +177,40 @@ async def team(ctx, *, team_name: str):
             await ctx.send(f"⚠️ No players found for **{team_name}**.")
             return
 
-        # ---- Get Team Totals from GROUP_STAGE ----
+        # ---- Get Team Totals ----
         all_rows = standings_ws.get_all_values()
-        headers2 = all_rows[6]  # Row 7 = headers
-        data = all_rows[7:17]   # Rows 8–17
+        headers2 = [h.strip().lower() for h in all_rows[6]]  # row 7
+        data = all_rows[7:17]
 
-        team_idx = headers2.index("Team")
+        team_idx = headers2.index("team")
         totals = None
         for row in data:
             if len(row) > team_idx and row[team_idx].strip().lower() == team_name.lower():
+                def get(col):
+                    return row[headers2.index(col)] if col in headers2 else "—"
+
                 totals = {
-                    "GP": row[headers2.index("GP")],
-                    "W": row[headers2.index("W")],
-                    "D": row[headers2.index("D")],
-                    "L": row[headers2.index("L")],
-                    "GF": row[headers2.index("GF")],
-                    "GA": row[headers2.index("GA")],
-                    "GD": row[headers2.index("GD")],
-                    "PTS": row[headers2.index("PTS")],
+                    "gp": get("gp"),
+                    "w": get("w"),
+                    "d": get("d"),
+                    "l": get("l"),
+                    "gf": get("gf"),
+                    "ga": get("ga"),
+                    "gd": get("gd"),
+                    "pts": get("pts"),
                 }
                 break
 
         # ---- Build Message ----
         msg = f"**🏒 {team_name.upper()} TEAM SUMMARY 🏒**\n\n"
-        msg += "__Players:__\n"
-        msg += ", ".join(players) + "\n\n"
+        msg += "__Players:__\n" + ", ".join(players) + "\n\n"
 
         if totals:
             msg += "__Team Totals:__\n"
-            msg += f"**GP:** {totals['GP']} | **W:** {totals['W']} | **D:** {totals['D']} | **L:** {totals['L']}\n"
-            msg += f"**GF:** {totals['GF']} | **GA:** {totals['GA']} | **GD:** {totals['GD']} | **PTS:** {totals['PTS']}"
+            msg += (
+                f"**GP:** {totals['gp']} | **W:** {totals['w']} | **D:** {totals['d']} | **L:** {totals['l']}\n"
+                f"**GF:** {totals['gf']} | **GA:** {totals['ga']} | **GD:** {totals['gd']} | **PTS:** {totals['pts']}"
+            )
         else:
             msg += "_No team totals found in GROUP_STAGE._"
 
