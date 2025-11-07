@@ -164,17 +164,33 @@ async def team(ctx, *, team_name: str):
 
         # ---- Get Player List ----
         all_players = players_ws.get_all_values()
-        headers = all_players[2]  # row 3 usually headers (adjust if needed)
-        team_col = headers.index("Team")
-        player_col = headers.index("Player")
 
-        players = [row[player_col] for row in all_players[3:] if len(row) > team_col and row[team_col].strip().lower() == team_name.lower()]
+        # find the header row containing both "Player" and "Team"
+        header_row_index = None
+        for i, row in enumerate(all_players[:10]):  # check first 10 rows
+            if "Player" in row and "Team" in row:
+                header_row_index = i
+                break
+
+        if header_row_index is None:
+            await ctx.send("⚠️ Couldn't find Player/Team headers in the PLAYERS sheet.")
+            return
+
+        headers = all_players[header_row_index]
+        player_col = headers.index("Player")
+        team_col = headers.index("Team")
+
+        players = [
+            row[player_col]
+            for row in all_players[header_row_index + 1 :]
+            if len(row) > team_col and row[team_col].strip().lower() == team_name.lower()
+        ]
 
         if not players:
             await ctx.send(f"⚠️ No players found for **{team_name}**.")
             return
 
-        # ---- Get Team Totals ----
+        # ---- Get Team Totals from GROUP_STAGE ----
         all_rows = standings_ws.get_all_values()
         headers2 = all_rows[6]  # Row 7 = headers
         data = all_rows[7:17]   # Rows 8–17
@@ -191,7 +207,7 @@ async def team(ctx, *, team_name: str):
                     "GF": row[headers2.index("GF")],
                     "GA": row[headers2.index("GA")],
                     "GD": row[headers2.index("GD")],
-                    "PTS": row[headers2.index("PTS")]
+                    "PTS": row[headers2.index("PTS")],
                 }
                 break
 
