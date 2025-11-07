@@ -154,6 +154,64 @@ async def standings(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching standings: {e}")
 
+@bot.command(name="team")
+async def team(ctx, *, team_name: str):
+    """Shows all players from a team and that team's overall stats."""
+    try:
+        # Access both sheets
+        players_ws = sheet.worksheet("PLAYERS")
+        standings_ws = sheet.worksheet("GROUP_STAGE")
+
+        # ---- Get Player List ----
+        all_players = players_ws.get_all_values()
+        headers = all_players[2]  # row 3 usually headers (adjust if needed)
+        team_col = headers.index("Team")
+        player_col = headers.index("Player")
+
+        players = [row[player_col] for row in all_players[3:] if len(row) > team_col and row[team_col].strip().lower() == team_name.lower()]
+
+        if not players:
+            await ctx.send(f"⚠️ No players found for **{team_name}**.")
+            return
+
+        # ---- Get Team Totals ----
+        all_rows = standings_ws.get_all_values()
+        headers2 = all_rows[6]  # Row 7 = headers
+        data = all_rows[7:17]   # Rows 8–17
+
+        team_idx = headers2.index("Team")
+        totals = None
+        for row in data:
+            if len(row) > team_idx and row[team_idx].strip().lower() == team_name.lower():
+                totals = {
+                    "GP": row[headers2.index("GP")],
+                    "W": row[headers2.index("W")],
+                    "D": row[headers2.index("D")],
+                    "L": row[headers2.index("L")],
+                    "GF": row[headers2.index("GF")],
+                    "GA": row[headers2.index("GA")],
+                    "GD": row[headers2.index("GD")],
+                    "PTS": row[headers2.index("PTS")]
+                }
+                break
+
+        # ---- Build Message ----
+        msg = f"**🏒 {team_name.upper()} TEAM SUMMARY 🏒**\n\n"
+        msg += "__Players:__\n"
+        msg += ", ".join(players) + "\n\n"
+
+        if totals:
+            msg += "__Team Totals:__\n"
+            msg += f"**GP:** {totals['GP']} | **W:** {totals['W']} | **D:** {totals['D']} | **L:** {totals['L']}\n"
+            msg += f"**GF:** {totals['GF']} | **GA:** {totals['GA']} | **GD:** {totals['GD']} | **PTS:** {totals['PTS']}"
+        else:
+            msg += "_No team totals found in GROUP_STAGE._"
+
+        await ctx.send(msg)
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Error fetching team info: {e}")
+
 
 
 # Example: read first cell
