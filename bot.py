@@ -332,9 +332,16 @@ async def matchlink(ctx, team1: str, team2: str):
                     break
 
         if found_row:
-            # Use cell() to get the actual cell object
-            cell = ws.cell(found_row, link_idx + 1)  # gspread is 1-based indexing
-            link = cell.hyperlink if cell.hyperlink else cell.value
+            cell = ws.cell(found_row, link_idx + 1)  # gspread uses 1-based indexing
+            raw = cell.input_value  # this gives the formula if present
+
+            # Parse hyperlink formula if it exists
+            link = None
+            if raw.startswith("=HYPERLINK("):
+                # Extract URL between the first pair of quotes
+                link = raw.split('"')[1]
+            else:
+                link = cell.value  # fallback to plain text
 
             team_a = ws.cell(found_row, team_a_idx + 1).value
             team_b = ws.cell(found_row, team_b_idx + 1).value
