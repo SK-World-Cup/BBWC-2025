@@ -1,3 +1,10 @@
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,  # or DEBUG for more detail
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 import os
 import json
 import discord
@@ -56,7 +63,28 @@ if not TOKEN:
 intents = discord.Intents.default()
 intents.message_content = True  # Needed to read message content
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+# -------------------- Event Handlers --------------------
+@bot.event
+async def on_ready():
+    logging.info(f"Bot connected as {bot.user}")
+
+@bot.event
+async def on_disconnect():
+    logging.warning("Bot disconnected from Discord.")
+
+@bot.event
+async def on_resumed():
+    logging.info("Bot reconnected to Discord.")
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    logging.exception(f"Unhandled error in event: {event}")
+
+@bot.event
+async def on_command_error(ctx, error):
+    logging.error(f"Error in command {ctx.command}: {error}")
+    await ctx.send("Oops, something went wrong. Check logs for details.")
+
 
 # Ping command
 @bot.command()
