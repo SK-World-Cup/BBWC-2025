@@ -322,22 +322,24 @@ async def matchlink(ctx, team1: str, team2: str):
         team_a_idx = 5
         team_b_idx = 16
 
-        found = None
-        for row in all_rows[1:]:  # skip header row if needed
+        found_row = None
+        for i, row in enumerate(all_rows[1:], start=2):  # start=2 because Sheets rows are 1-based
             if len(row) > max(link_idx, team_a_idx, team_b_idx):
                 t_a = row[team_a_idx].strip().lower()
                 t_b = row[team_b_idx].strip().lower()
-                # check both orders
-                if ({t_a, t_b} == {team1.lower(), team2.lower()}):
-                    found = {
-                        "link": row[link_idx],
-                        "team_a": row[team_a_idx],
-                        "team_b": row[team_b_idx]
-                    }
+                if {t_a, t_b} == {team1.lower(), team2.lower()}:
+                    found_row = i
                     break
 
-        if found:
-            msg = f"🎥 {found['link']}\nMatch: **{found['team_a']} vs {found['team_b']}**"
+        if found_row:
+            # Use cell() to get the actual cell object
+            cell = ws.cell(found_row, link_idx + 1)  # gspread is 1-based indexing
+            link = cell.hyperlink if cell.hyperlink else cell.value
+
+            team_a = ws.cell(found_row, team_a_idx + 1).value
+            team_b = ws.cell(found_row, team_b_idx + 1).value
+
+            msg = f"🎥 {link}\nMatch: **{team_a} vs {team_b}**"
             await ctx.send(msg)
         else:
             await ctx.send(f"❌ No match found for {team1} vs {team2}")
