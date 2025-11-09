@@ -63,6 +63,9 @@ if not TOKEN:
 intents = discord.Intents.default()
 intents.message_content = True  # Needed to read message content
 
+# ✅ Create the bot object here
+bot = commands.Bot(command_prefix="!", intents=intents)
+
 # -------------------- Event Handlers --------------------
 @bot.event
 async def on_ready():
