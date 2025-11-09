@@ -311,6 +311,8 @@ async def topscorers(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching top scorers: {e}")
 
+from gspread.utils import ValueRenderOption
+
 @bot.command(name="matchlink")
 async def matchlink(ctx, team1: str, team2: str):
     try:
@@ -332,16 +334,16 @@ async def matchlink(ctx, team1: str, team2: str):
                     break
 
         if found_row:
-            cell = ws.cell(found_row, link_idx + 1)  # gspread uses 1-based indexing
-            raw = cell.input_value  # this gives the formula if present
+            # Get the raw formula from column D
+            raw = ws.cell(found_row, link_idx + 1,
+                          value_render_option=ValueRenderOption.formula).value
 
-            # Parse hyperlink formula if it exists
             link = None
-            if raw.startswith("=HYPERLINK("):
+            if raw and raw.startswith("=HYPERLINK("):
                 # Extract URL between the first pair of quotes
                 link = raw.split('"')[1]
             else:
-                link = cell.value  # fallback to plain text
+                link = ws.cell(found_row, link_idx + 1).value  # fallback to plain text
 
             team_a = ws.cell(found_row, team_a_idx + 1).value
             team_b = ws.cell(found_row, team_b_idx + 1).value
