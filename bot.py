@@ -311,6 +311,40 @@ async def topscorers(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching top scorers: {e}")
 
+@bot.command(name="matchlink")
+async def matchlink(ctx, team1: str, team2: str):
+    try:
+        ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
+        all_rows = ws.get_all_values()
+
+        # Column indexes (0-based: D=3, F=5, Q=16)
+        link_idx = 3
+        team_a_idx = 5
+        team_b_idx = 16
+
+        found = None
+        for row in all_rows[1:]:  # skip header row if needed
+            if len(row) > max(link_idx, team_a_idx, team_b_idx):
+                t_a = row[team_a_idx].strip().lower()
+                t_b = row[team_b_idx].strip().lower()
+                # check both orders
+                if ({t_a, t_b} == {team1.lower(), team2.lower()}):
+                    found = {
+                        "link": row[link_idx],
+                        "team_a": row[team_a_idx],
+                        "team_b": row[team_b_idx]
+                    }
+                    break
+
+        if found:
+            msg = f"🎥 {found['link']}\nMatch: **{found['team_a']} vs {found['team_b']}**"
+            await ctx.send(msg)
+        else:
+            await ctx.send(f"❌ No match found for {team1} vs {team2}")
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Error fetching match link: {e}")
+
 
 
 # Example: read first cell
