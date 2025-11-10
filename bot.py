@@ -468,17 +468,5 @@ async def assists(ctx):
 
 
 
-# Example: read first cell
-@bot.command()
-async def read_sheet(ctx):
-    if not SHEET_ID:
-        await ctx.send("No sheet configured!")
-        return
-    try:
-        value = sheet.sheet1.cell(1,1).value
-        await ctx.send(f"First cell value: {value}")
-    except Exception as e:
-        await ctx.send(f"Error reading sheet: {e}")
-
 # -------------------- Run Bot --------------------
 bot.run(TOKEN)
