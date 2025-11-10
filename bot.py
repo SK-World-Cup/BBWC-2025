@@ -360,14 +360,13 @@ async def matchlink(ctx, team1: str, team2: str):
 async def matchinfo(ctx, team1: str, team2: str):
     try:
         ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
-        all_rows = ws.get_all_values()
+        all_rows = ws.get_all_values()   # one bulk read
 
-        # Column indexes (0-based in Python, but +1 when calling .cell)
         team1_col = 5   # F
         team2_col = 16  # Q
 
         found_row = None
-        for i, row in enumerate(all_rows[1:], start=2):  # skip header, sheet rows are 1-based
+        for i, row in enumerate(all_rows[1:], start=2):  # skip header
             if len(row) > max(team1_col, team2_col):
                 t1 = row[team1_col].strip().lower()
                 t2 = row[team2_col].strip().lower()
@@ -379,43 +378,26 @@ async def matchinfo(ctx, team1: str, team2: str):
             await ctx.send(f"❌ No match found for {team1} vs {team2}")
             return
 
-        # Build output for 4 consecutive rows
+        # Grab 4 consecutive rows (games)
+        row_data = all_rows[found_row-1 : found_row+3]  # Python is 0-based
+
         msg_lines = [f"📊 Match Info: **{team1} vs {team2}**\n"]
-        for offset in range(4):
-            row_num = found_row + offset
-
+        for offset, row in enumerate(row_data, start=1):
             # Team 1 players + stats
-            p1 = ws.cell(row_num, 7).value  # G
-            p1g = ws.cell(row_num, 8).value
-            p1a = ws.cell(row_num, 9).value
-
-            p2 = ws.cell(row_num, 10).value  # J
-            p2g = ws.cell(row_num, 11).value
-            p2a = ws.cell(row_num, 12).value
-
-            p3 = ws.cell(row_num, 13).value  # M
-            p3g = ws.cell(row_num, 14).value
-            p3a = ws.cell(row_num, 15).value
+            p1, p1g, p1a = row[6], row[7], row[8]
+            p2, p2g, p2a = row[9], row[10], row[11]
+            p3, p3g, p3a = row[12], row[13], row[14]
 
             # Team 2 players + stats
-            o1 = ws.cell(row_num, 18).value  # R
-            o1g = ws.cell(row_num, 19).value
-            o1a = ws.cell(row_num, 20).value
-
-            o2 = ws.cell(row_num, 21).value  # U
-            o2g = ws.cell(row_num, 22).value
-            o2a = ws.cell(row_num, 23).value
-
-            o3 = ws.cell(row_num, 24).value  # X
-            o3g = ws.cell(row_num, 25).value
-            o3a = ws.cell(row_num, 26).value
+            o1, o1g, o1a = row[17], row[18], row[19]
+            o2, o2g, o2a = row[20], row[21], row[22]
+            o3, o3g, o3a = row[23], row[24], row[25]
 
             # Scores
-            score1 = ws.cell(row_num, 27).value  # AA
-            score2 = ws.cell(row_num, 28).value  # AB
+            score1, score2 = row[26], row[27]
 
             msg_lines.append(
-                f"🎮 Game {offset+1}:\n"
+                f"🎮 Game {offset}:\n"
                 f"  {team1} — {p1} (G:{p1g}, A:{p1a}), {p2} (G:{p2g}, A:{p2a}), {p3} (G:{p3g}, A:{p3a})\n"
                 f"  {team2} — {o1} (G:{o1g}, A:{o1a}), {o2} (G:{o2g}, A:{o2a}), {o3} (G:{o3g}, A:{o3a})\n"
                 f"  🏆 Score: {team1} {score1} — {team2} {score2}\n"
