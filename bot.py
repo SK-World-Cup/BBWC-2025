@@ -468,5 +468,19 @@ async def assists(ctx):
 
 
 
+from discord.ext import commands
+
+bot = commands.Bot(command_prefix="!")
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        # swallow the error, do nothing
+        return
+    # for other errors, you can still log or handle them
+    raise error
+
+
+
 # -------------------- Run Bot --------------------
 bot.run(TOKEN)
