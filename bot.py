@@ -85,8 +85,9 @@ async def on_error(event, *args, **kwargs):
 
 @bot.event
 async def on_command_error(ctx, error):
-    logging.error(f"Error in command {ctx.command}: {error}")
-    await ctx.send("Oops, something went wrong. Check logs for details.")
+    if isinstance(error, commands.CommandNotFound):
+        return  # silently ignore unknown commands
+    raise error  # let other errors bubble up
 
 
 # Ping command
@@ -465,20 +466,6 @@ async def assists(ctx):
 
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching assists: {e}")
-
-
-
-from discord.ext import commands
-
-bot = commands.Bot(command_prefix="!")
-
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
-        # swallow the error, do nothing
-        return
-    # for other errors, you can still log or handle them
-    raise error
 
 
 
