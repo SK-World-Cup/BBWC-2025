@@ -408,6 +408,60 @@ async def matchinfo(ctx, team1: str, team2: str):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching match info: {e}")
 
+@bot.command(name="assists")
+async def assists(ctx):
+    """Shows the top 10 assist leaders from the PLAYERS sheet, with GP and goals as tiebreakers."""
+    try:
+        ws = sheet.worksheet("PLAYERS")
+        all_rows = ws.get_all_values()
+
+        # Headers are on row 4 (index 3), data starts at row 5 (index 4)
+        headers = [h.strip().lower() for h in all_rows[3]]
+        data = all_rows[4:]
+
+        # Find column indexes
+        player_idx = headers.index("player")
+        team_idx = headers.index("team")
+        gp_idx = headers.index("gp")
+        g_idx = headers.index("g")
+        a_idx = headers.index("a")
+
+        # Parse players
+        parsed = []
+        for row in data:
+            try:
+                assists = int(row[a_idx]) if row[a_idx].isdigit() else 0
+            except Exception:
+                assists = 0
+            try:
+                gp = int(row[gp_idx]) if row[gp_idx].isdigit() else 0
+            except Exception:
+                gp = 0
+            goals = row[g_idx] if len(row) > g_idx else "0"
+
+            parsed.append({
+                "player": row[player_idx],
+                "team": row[team_idx],
+                "gp": gp,
+                "goals": int(goals) if str(goals).isdigit() else 0,
+                "assists": assists
+            })
+
+        # Sort by assists DESC, GP ASC, goals DESC
+        sorted_players = sorted(parsed, key=lambda x: (-x["assists"], x["gp"], -x["goals"]))
+
+        # Build leaderboard text
+        msg = "**🅰️ TOP 10 ASSIST LEADERS 🅰️**\n"
+        medals = ["🥇", "🥈", "🥉"]
+        for i, p in enumerate(sorted_players[:10], start=1):
+            rank = medals[i-1] if i <= 3 else f"{i}."
+            msg += f"{rank} {p['player']} ({p['team']}) - {p['assists']} A, {p['goals']} G, {p['gp']} GP\n"
+
+        await ctx.send(msg)
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Error fetching assists: {e}")
+
 
 
 # Example: read first cell
