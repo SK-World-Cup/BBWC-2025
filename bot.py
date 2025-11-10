@@ -90,14 +90,16 @@ async def on_command_error(ctx, error):
 
 
 # Ping command
-@bot.command()
+@bot.command(name="ping")
 async def ping(ctx):
+    """Checks if the bot is online and responsive."""
     latency_ms = round(bot.latency * 1000)
     await ctx.send(f"Pong! Latency: {latency_ms}ms")
 
 # You can add more commands here that interact with Google Sheets
 @bot.command(name="player")
 async def player(ctx, *, name: str):
+    """Displays stats for a specific player from the PLAYERS sheet."""
     try:
         ws = sheet.worksheet("PLAYERS")
         data = ws.get_all_values()
@@ -315,6 +317,7 @@ from gspread.utils import ValueRenderOption
 
 @bot.command(name="matchlink")
 async def matchlink(ctx, team1: str, team2: str):
+    """Provides the video link for a match between two teams."""
     try:
         ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
         all_rows = ws.get_all_values()
@@ -358,6 +361,7 @@ async def matchlink(ctx, team1: str, team2: str):
 
 @bot.command(name="matchinfo")
 async def matchinfo(ctx, team1: str, team2: str):
+    """Shows a 4‑game breakdown between two teams, including players, stats, and scores."""
     try:
         ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
         all_rows = ws.get_all_values()   # one bulk read
