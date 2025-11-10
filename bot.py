@@ -356,6 +356,76 @@ async def matchlink(ctx, team1: str, team2: str):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching match link: {e}")
 
+@bot.command(name="matchinfo")
+async def matchinfo(ctx, team1: str, team2: str):
+    try:
+        ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
+        all_rows = ws.get_all_values()
+
+        # Column indexes (0-based in Python, but +1 when calling .cell)
+        team1_col = 5   # F
+        team2_col = 16  # Q
+
+        found_row = None
+        for i, row in enumerate(all_rows[1:], start=2):  # skip header, sheet rows are 1-based
+            if len(row) > max(team1_col, team2_col):
+                t1 = row[team1_col].strip().lower()
+                t2 = row[team2_col].strip().lower()
+                if {t1, t2} == {team1.lower(), team2.lower()}:
+                    found_row = i
+                    break
+
+        if not found_row:
+            await ctx.send(f"❌ No match found for {team1} vs {team2}")
+            return
+
+        # Build output for 4 consecutive rows
+        msg_lines = [f"📊 Match Info: **{team1} vs {team2}**\n"]
+        for offset in range(4):
+            row_num = found_row + offset
+
+            # Team 1 players + stats
+            p1 = ws.cell(row_num, 7).value  # G
+            p1g = ws.cell(row_num, 8).value
+            p1a = ws.cell(row_num, 9).value
+
+            p2 = ws.cell(row_num, 10).value  # J
+            p2g = ws.cell(row_num, 11).value
+            p2a = ws.cell(row_num, 12).value
+
+            p3 = ws.cell(row_num, 13).value  # M
+            p3g = ws.cell(row_num, 14).value
+            p3a = ws.cell(row_num, 15).value
+
+            # Team 2 players + stats
+            o1 = ws.cell(row_num, 18).value  # R
+            o1g = ws.cell(row_num, 19).value
+            o1a = ws.cell(row_num, 20).value
+
+            o2 = ws.cell(row_num, 21).value  # U
+            o2g = ws.cell(row_num, 22).value
+            o2a = ws.cell(row_num, 23).value
+
+            o3 = ws.cell(row_num, 24).value  # X
+            o3g = ws.cell(row_num, 25).value
+            o3a = ws.cell(row_num, 26).value
+
+            # Scores
+            score1 = ws.cell(row_num, 27).value  # AA
+            score2 = ws.cell(row_num, 28).value  # AB
+
+            msg_lines.append(
+                f"🎮 Game {offset+1}:\n"
+                f"  {team1} — {p1} (G:{p1g}, A:{p1a}), {p2} (G:{p2g}, A:{p2a}), {p3} (G:{p3g}, A:{p3a})\n"
+                f"  {team2} — {o1} (G:{o1g}, A:{o1a}), {o2} (G:{o2g}, A:{o2a}), {o3} (G:{o3g}, A:{o3a})\n"
+                f"  🏆 Score: {team1} {score1} — {team2} {score2}\n"
+            )
+
+        await ctx.send("\n".join(msg_lines))
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Error fetching match info: {e}")
+
 
 
 # Example: read first cell
