@@ -93,20 +93,16 @@ async def on_command_error(ctx, error):
 
 import random
 
-@bot.command()
-async def secret(ctx):
-    target_user_id = 123456789012345678  # Replace with the ID of the person you want to block
+target_user_id = 1399947172723818606
 
+@bot.check
+async def global_block(ctx):
     if ctx.author.id == target_user_id:
-        # Flip a coin: True or False
         if random.choice([True, False]):
-            await ctx.send("❌ Error: You are not allowed to use this command.")
-            return
-        # If False, let it run normally
+            await ctx.send("❌ Error: You are a baboon ass gay ass bitch ass nigger who doesn't server shit in life and should kill themselves.")
+            return False  # stops the command
+    return True  # lets everyone else run commands
 
-    # Normal command logic goes here
-    # Example: maybe interact with Google Sheets or whatever you want
-    # If you leave it empty, it just does nothing for non-blocked users
 
 
 
