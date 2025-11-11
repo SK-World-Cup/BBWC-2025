@@ -469,10 +469,14 @@ async def assists(ctx):
 
 @bot.command()
 async def secret(ctx):
-    target_user_id = 1399947172723818606  # Replace with the ID of the person you want to mess with
+    target_user_id = 1399947172723818606  # Replace with the ID of the person you want to block
 
     if ctx.author.id == target_user_id:
-        await ctx.send("❌ Error: You are a bitch.")
+        await ctx.send("❌ Error: You are not allowed to use this command.")
+    else:
+        # Normal command logic goes here
+        # For example, you could put the real functionality here
+        pass
 
 
 
