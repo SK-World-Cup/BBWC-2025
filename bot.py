@@ -473,8 +473,6 @@ async def secret(ctx):
 
     if ctx.author.id == target_user_id:
         await ctx.send("❌ Error: You are a bitch.")
-    else:
-        await ctx.send("✅ Command executed successfully!")
 
 
 
