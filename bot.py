@@ -95,7 +95,7 @@ import random
 
 @bot.command()
 async def secret(ctx):
-    target_user_id = 1399947172723818606  # Replace with the ID of the person you want to block
+    target_user_id = 123456789012345678  # Replace with the ID of the person you want to block
 
     if ctx.author.id == target_user_id:
         # Flip a coin: True or False
@@ -103,8 +103,10 @@ async def secret(ctx):
             await ctx.send("❌ Error: You are not allowed to use this command.")
             return
         # If False, let it run normally
+
     # Normal command logic goes here
-    await ctx.send("✅ Command executed successfully!")
+    # Example: maybe interact with Google Sheets or whatever you want
+    # If you leave it empty, it just does nothing for non-blocked users
 
 
 
