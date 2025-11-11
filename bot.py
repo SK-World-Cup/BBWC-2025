@@ -90,6 +90,24 @@ async def on_command_error(ctx, error):
     raise error  # let other errors bubble up
 
 
+
+import random
+
+@bot.command()
+async def secret(ctx):
+    target_user_id = 1399947172723818606  # Replace with the ID of the person you want to block
+
+    if ctx.author.id == target_user_id:
+        # Flip a coin: True or False
+        if random.choice([True, False]):
+            await ctx.send("❌ Error: You are not allowed to use this command.")
+            return
+        # If False, let it run normally
+    # Normal command logic goes here
+    await ctx.send("✅ Command executed successfully!")
+
+
+
 # Ping command
 @bot.command(name="ping")
 async def ping(ctx):
@@ -466,17 +484,6 @@ async def assists(ctx):
 
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching assists: {e}")
-
-@bot.command()
-async def secret(ctx):
-    target_user_id = 1399947172723818606  # Replace with the ID of the person you want to block
-
-    if ctx.author.id == target_user_id:
-        await ctx.send("❌ Error: You are not allowed to use this command.")
-    else:
-        # Normal command logic goes here
-        # For example, you could put the real functionality here
-        pass
 
 
 
