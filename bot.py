@@ -93,15 +93,37 @@ async def on_command_error(ctx, error):
 
 import random
 
-target_user_id = 1399947172723818606
+# List of exempt IDs (0% chance of failure)
+exempt_ids = [
+    1035911200237699072,
+    1399947172723818606,
+    439236099236429825
+]
+
+# Dictionary of custom error messages for specific IDs
+custom_errors = {
+    444444444444444444: "🚫 Custom Error: You triggered the special block!",
+    555555555555555555: "⚡ Custom Error: Access denied for you only!",
+    666666666666666666: "🛑 Custom Error: This command is off-limits!"
+}
 
 @bot.check
-async def global_block(ctx):
-    if ctx.author.id == target_user_id:
-        if random.choice([True, False]):
-            await ctx.send("❌ Error: You are a baboon ass gay ass bitch ass nigger who doesn't server shit in life and should kill themselves.")
-            return False  # stops the command
-    return True  # lets everyone else run commands
+async def global_random_fail(ctx):
+    # Exempt users always succeed
+    if ctx.author.id in exempt_ids:
+        return True
+
+    # 1% chance of error for everyone else
+    if random.randint(1, 100) == 1:
+        # If the user has a custom error, use it
+        if ctx.author.id in custom_errors:
+            await ctx.send(custom_errors[ctx.author.id])
+        else:
+            # Normal error for everyone else
+            await ctx.send("❌Error: imagine being unlucky and getting a 1% chance error. From yours truly, Tater.")
+        return False  # stops the command
+    return True  # allows the command normally
+
 
 
 
