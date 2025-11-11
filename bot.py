@@ -467,6 +467,15 @@ async def assists(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching assists: {e}")
 
+@bot.command()
+async def secret(ctx):
+    target_user_id = 1399947172723818606  # Replace with the ID of the person you want to mess with
+
+    if ctx.author.id == target_user_id:
+        await ctx.send("❌ Error: You are a bitch.")
+    else:
+        await ctx.send("✅ Command executed successfully!")
+
 
 
 # -------------------- Run Bot --------------------
