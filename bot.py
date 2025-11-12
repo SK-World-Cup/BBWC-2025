@@ -64,7 +64,7 @@ intents = discord.Intents.default()
 intents.message_content = True  # Needed to read message content
 
 # ✅ Create the bot object here
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="$", intents=intents)
 
 # -------------------- Event Handlers --------------------
 @bot.event
@@ -409,12 +409,16 @@ async def matchinfo(ctx, team1: str, team2: str):
         team2_col = 16  # Q
 
         found_row = None
+        sheet_team1, sheet_team2 = None, None
+
+        # Find the row where these two teams meet, regardless of input order
         for i, row in enumerate(all_rows[1:], start=2):  # skip header
             if len(row) > max(team1_col, team2_col):
                 t1 = row[team1_col].strip().lower()
                 t2 = row[team2_col].strip().lower()
-                if {t1, t2} == {team1.lower(), team2.lower()}:
+                if (t1 == team1.lower() and t2 == team2.lower()) or (t1 == team2.lower() and t2 == team1.lower()):
                     found_row = i
+                    sheet_team1, sheet_team2 = row[team1_col].strip(), row[team2_col].strip()
                     break
 
         if not found_row:
@@ -424,7 +428,7 @@ async def matchinfo(ctx, team1: str, team2: str):
         # Grab 4 consecutive rows (games)
         row_data = all_rows[found_row-1 : found_row+3]  # Python is 0-based
 
-        msg_lines = [f"📊 Match Info: **{team1} vs {team2}**\n"]
+        msg_lines = [f"📊 Match Info: **{sheet_team1} vs {sheet_team2}**\n"]
         for offset, row in enumerate(row_data, start=1):
             # Team 1 players + stats
             p1, p1g, p1a = row[6], row[7], row[8]
@@ -441,9 +445,9 @@ async def matchinfo(ctx, team1: str, team2: str):
 
             msg_lines.append(
                 f"🎮 Game {offset}:\n"
-                f"  {team1} — {p1} (G:{p1g}, A:{p1a}), {p2} (G:{p2g}, A:{p2a}), {p3} (G:{p3g}, A:{p3a})\n"
-                f"  {team2} — {o1} (G:{o1g}, A:{o1a}), {o2} (G:{o2g}, A:{o2a}), {o3} (G:{o3g}, A:{o3a})\n"
-                f"  🏆 Score: {team1} {score1} — {team2} {score2}\n"
+                f"  {sheet_team1} — {p1} (G:{p1g}, A:{p1a}), {p2} (G:{p2g}, A:{p2a}), {p3} (G:{p3g}, A:{p3a})\n"
+                f"  {sheet_team2} — {o1} (G:{o1g}, A:{o1a}), {o2} (G:{o2g}, A:{o2a}), {o3} (G:{o3g}, A:{o3a})\n"
+                f"  🏆 Score: {sheet_team1} {score1} — {sheet_team2} {score2}\n"
             )
 
         await ctx.send("\n".join(msg_lines))
