@@ -416,7 +416,9 @@ async def matchinfo(ctx, team1: str, team2: str):
             if len(row) > max(team1_col, team2_col):
                 t1 = row[team1_col].strip().lower()
                 t2 = row[team2_col].strip().lower()
-                if (t1 == team1.lower() and t2 == team2.lower()) or (t1 == team2.lower() and t2 == team1.lower()):
+
+                # Accept either input order
+                if {t1, t2} == {team1.lower(), team2.lower()}:
                     found_row = i
                     sheet_team1, sheet_team2 = row[team1_col].strip(), row[team2_col].strip()
                     break
