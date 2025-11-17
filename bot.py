@@ -171,14 +171,14 @@ async def player(ctx, *, name: str):
 
 @bot.command(name="standings")
 async def standings(ctx):
-    """Shows the top 10 teams in the tournament standings."""
+    """Shows the tournament standings of every team sorted by points."""
     try:
         sheet_data = sheet.worksheet("GROUP_STAGE")
         all_rows = sheet_data.get_all_values()
 
         # Headers and actual data (adjusted to your described structure)
         headers = all_rows[6]   # Row 7 in Sheets (0-index)
-        data = all_rows[7:17]   # Rows 8–17
+        data = all_rows[7:16]   # Rows 8–17
 
         # Find index positions for columns
         team_idx = headers.index("Team")
