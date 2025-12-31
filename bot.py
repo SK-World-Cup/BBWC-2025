@@ -13,6 +13,8 @@ from flask import Flask
 from threading import Thread
 import gspread
 from google.oauth2.service_account import Credentials
+from time import time, sleep
+import requests
 
 # -------------------- Flask Webserver --------------------
 app = Flask(__name__)
@@ -34,7 +36,7 @@ Thread(target=run_webserver).start()
 
 # ---------------- Self-Ping Loop ---------------- #
 def keep_alive():
-    url = os.environ.get("https://bbwc-2025.onrender.com")  # e.g., https://your-bot.onrender.com/
+    url = os.environ.get("WEB_URL")
     if not url:
         return
     while True:
