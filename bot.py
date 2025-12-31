@@ -16,18 +16,22 @@ from google.oauth2.service_account import Credentials
 
 # -------------------- Flask Webserver --------------------
 app = Flask(__name__)
+last_ping = 0  # for simple rate-limiting
 
 @app.route("/")
 def home():
+    global last_ping
+    if time() - last_ping < 2:  # ignore pings within 2 seconds
+        return "", 429
+    last_ping = time()
     return "Bot is alive", 200
 
 def run_webserver():
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, threaded=True)
 
-# Start Flask in a separate thread so Discord bot can run concurrently
+# Start Flask server in a separate thread
 Thread(target=run_webserver).start()
-
 # -------------------- Google Sheets Setup --------------------
 # GOOGLE_CREDS_JSON should be set as a Render environment variable
 creds_json = os.environ.get("GOOGLE_CREDS_JSON")
