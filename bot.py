@@ -32,14 +32,11 @@ creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
 gc = gspread.authorize(creds)
 
 # Example: open a sheet by key
-SHEET_ID = os.environ.get("SHEET_ID")  # Set this as a Render env variable
-if SHEET_ID:
-    try:
-        sheet = gc.open_by_key(SHEET_ID)
-    except gspread.exceptions.APIError as e:
-        print(f"Error accessing sheet: {e}")
-else:
-    print("No SHEET_ID provided. Google Sheets functions will not work.")
+def get_sheet():
+    SHEET_ID = os.environ.get("SHEET_ID")
+    if not SHEET_ID:
+        raise RuntimeError("SHEET_ID not set")
+    return gc.open_by_key(SHEET_ID)
 
 # -------------------- Discord Bot Setup --------------------
 TOKEN = os.environ.get("DISCORD_TOKEN")
@@ -127,6 +124,7 @@ async def ping(ctx):
 async def player(ctx, *, name: str):
     """Displays stats for a specific player from the PLAYERS sheet."""
     try:
+        sheet = get_sheet()
         ws = sheet.worksheet("PLAYERS")
         data = ws.get_all_values()
 
@@ -160,6 +158,7 @@ async def player(ctx, *, name: str):
 async def standings(ctx):
     """Shows the tournament standings of every team sorted by points."""
     try:
+        sheet = get_sheet()
         sheet_data = sheet.worksheet("GROUP_STAGE")
         all_rows = sheet_data.get_all_values()
 
@@ -217,6 +216,7 @@ async def standings(ctx):
 async def team(ctx, *, team_name: str):
     """Shows all players from a team with stats and the team's overall totals."""
     try:
+        sheet = get_sheet()
         players_ws = sheet.worksheet("PLAYERS")
         standings_ws = sheet.worksheet("GROUP_STAGE")
 
@@ -289,6 +289,7 @@ async def team(ctx, *, team_name: str):
 async def topscorers(ctx):
     """Shows the top 10 goal scorers from the PLAYERS sheet, with GP as tiebreaker."""
     try:
+        sheet = get_sheet()
         ws = sheet.worksheet("PLAYERS")
         all_rows = ws.get_all_values()
 
@@ -345,6 +346,7 @@ from gspread.utils import ValueRenderOption
 async def matchlink(ctx, team1: str, team2: str):
     """Provides the video link for a match between two teams."""
     try:
+        sheet = get_sheet()
         ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
         all_rows = ws.get_all_values()
 
@@ -389,6 +391,7 @@ async def matchlink(ctx, team1: str, team2: str):
 async def matchinfo(ctx, team1: str, team2: str):
     """Shows a 4‑game breakdown between two teams, including players, stats, and scores."""
     try:
+        sheet = get_sheet()
         ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
         all_rows = ws.get_all_values()   # one bulk read
 
@@ -448,6 +451,7 @@ async def matchinfo(ctx, team1: str, team2: str):
 async def assists(ctx):
     """Shows the top 10 assist leaders from the PLAYERS sheet, with GP and goals as tiebreakers."""
     try:
+        sheet = get_sheet()
         ws = sheet.worksheet("PLAYERS")
         all_rows = ws.get_all_values()
 
