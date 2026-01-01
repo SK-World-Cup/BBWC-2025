@@ -497,8 +497,3 @@ async def assists(ctx):
 
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching assists: {e}")
-
-
-
-# -------------------- Run Bot --------------------
-bot.run(TOKEN)
