@@ -497,3 +497,5 @@ async def assists(ctx):
 
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching assists: {e}")
+
+print("bot.py loaded")
