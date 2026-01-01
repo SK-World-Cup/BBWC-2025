@@ -9,44 +9,11 @@ import os
 import json
 import discord
 from discord.ext import commands
-from flask import Flask
 from threading import Thread
 import gspread
 from google.oauth2.service_account import Credentials
 from time import time, sleep
 import requests
-
-# -------------------- Flask Webserver --------------------
-app = Flask(__name__)
-last_ping = 0  # simple rate-limit
-
-@app.route("/")
-def home():
-    global last_ping
-    if time() - last_ping < 2:  # ignore rapid repeated pings
-        return "", 429
-    last_ping = time()
-    return "Bot is alive", 200
-
-def run_webserver():
-    port = int(os.environ.get("PORT", 10000))  # Render provides PORT env
-    app.run(host="0.0.0.0", port=port, threaded=True)
-
-Thread(target=run_webserver).start()
-
-# ---------------- Self-Ping Loop ---------------- #
-def keep_alive():
-    url = os.environ.get("WEB_URL")
-    if not url:
-        return
-    while True:
-        try:
-            requests.get(url)
-        except:
-            pass
-        sleep(240)  # ping every 4 minutes
-
-Thread(target=keep_alive, daemon=True).start()
 
 # -------------------- Google Sheets Setup --------------------
 # GOOGLE_CREDS_JSON should be set as a Render environment variable
