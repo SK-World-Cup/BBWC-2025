@@ -1,4 +1,5 @@
 import logging
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,  # or DEBUG for more detail
@@ -119,7 +120,6 @@ async def ping(ctx):
     latency_ms = round(bot.latency * 1000)
     await ctx.send(f"Pong! Latency: {latency_ms}ms")
 
-# You can add more commands here that interact with Google Sheets
 @bot.command(name="player")
 async def player(ctx, *, name: str):
     """Displays stats for a specific player from the PLAYERS sheet."""
@@ -127,25 +127,40 @@ async def player(ctx, *, name: str):
         # Get worksheet data
         all_rows = public_sheet.get_worksheet("PLAYERS")
         
-        # Extract header and rows
-        header = all_rows[0]
-        data_rows = all_rows[1:]
+        # Headers are on row 4 (index 3), data starts at row 5 (index 4)
+        headers = all_rows[3]
+        data_rows = all_rows[4:]
+
+        # Column indexes (0-based)
+        # C4: Players (index 2), E4: TEAM (index 4), F4: GP (index 5), J4: G (index 9), K4: A (index 10)
+        player_idx = 2  # Column C
+        team_idx = 4    # Column E
+        gp_idx = 5      # Column F
+        goals_idx = 9   # Column J
+        assists_idx = 10 # Column K
 
         # Find the player's row (case-insensitive match)
-        player_row = next((r for r in data_rows if len(r) > 2 and r[2].strip().lower() == name.lower()), None)
+        player_row = None
+        for row in data_rows:
+            if len(row) > player_idx and row[player_idx].strip().lower() == name.lower():
+                player_row = row
+                break
 
         if not player_row:
             await ctx.send(f"❌ Player '{name}' not found.")
             return
 
-        # Build stats message (adjusted to your column order)
+        # Get values with safe indexing
+        player_name = player_row[player_idx] if len(player_row) > player_idx else "Unknown"
+        team = player_row[team_idx] if len(player_row) > team_idx else "Unknown"
+        gp = player_row[gp_idx] if len(player_row) > gp_idx else "0"
+        goals = player_row[goals_idx] if len(player_row) > goals_idx else "0"
+        assists = player_row[assists_idx] if len(player_row) > assists_idx else "0"
+
+        # Build stats message (simplified since we only have basic stats)
         msg = (
-            f"**{player_row[2]}** ({player_row[4]})\n"
-            f"Games: {player_row[5]} | Wins: {player_row[6]} | Draws: {player_row[7]} | Losses: {player_row[8]}\n"
-            f"Goals: {player_row[9]} | Assists: {player_row[10]}\n"
-            f"Goals For: {player_row[11]} | Goals Against: {player_row[12]} | Clean Sheets: {player_row[13]}\n"
-            f"Goal Diff: {player_row[14]}\n"
-            f"G/Game: {player_row[18]} | A/Game: {player_row[19]}"
+            f"**{player_name}** ({team})\n"
+            f"Games: {gp} | Goals: {goals} | Assists: {assists}"
         )
 
         await ctx.send(msg)
@@ -159,39 +174,43 @@ async def standings(ctx):
     try:
         all_rows = public_sheet.get_worksheet("GROUP_STAGE")
 
-        # Headers and actual data (adjusted to your described structure)
-        headers = all_rows[6]   # Row 7 in Sheets (0-index)
-        data = all_rows[7:16]   # Rows 8–17
+        # Headers are on row 7 (index 6), data starts at row 8 (index 7)
+        headers = all_rows[6]
+        data = all_rows[7:]
 
-        # Find index positions for columns
-        team_idx = headers.index("Team")
-        gp_idx = headers.index("GP")
-        w_idx = headers.index("W")
-        d_idx = headers.index("D")
-        l_idx = headers.index("L")
-        gf_idx = headers.index("GF")
-        ga_idx = headers.index("GA")
-        gd_idx = headers.index("GD")
-        pts_idx = headers.index("PTS")
+        # Column indexes (0-based)
+        # C7: Team (index 2), E7: GP (index 4), F7: W (index 5), G7: D (index 6), 
+        # H7: L (index 7), J7: GF (index 9), K7: GA (index 10), Q7: PTS (index 16)
+        team_idx = 2   # Column C
+        gp_idx = 4     # Column E
+        w_idx = 5      # Column F
+        d_idx = 6      # Column G
+        l_idx = 7      # Column H
+        gf_idx = 9     # Column J
+        ga_idx = 10    # Column K
+        pts_idx = 16   # Column Q
 
         # Parse data and sort by PTS descending
         parsed = []
         for row in data:
-            try:
-                pts = int(row[pts_idx])
-            except (ValueError, IndexError):
-                pts = 0
-            parsed.append({
-                "team": row[team_idx] if len(row) > team_idx else "",
-                "gp": row[gp_idx] if len(row) > gp_idx else "0",
-                "w": row[w_idx] if len(row) > w_idx else "0",
-                "d": row[d_idx] if len(row) > d_idx else "0",
-                "l": row[l_idx] if len(row) > l_idx else "0",
-                "gf": row[gf_idx] if len(row) > gf_idx else "0",
-                "ga": row[ga_idx] if len(row) > ga_idx else "0",
-                "gd": row[gd_idx] if len(row) > gd_idx else "0",
-                "pts": pts
-            })
+            if len(row) > team_idx and row[team_idx].strip():  # Only process rows with team names
+                try:
+                    pts = int(row[pts_idx]) if len(row) > pts_idx and row[pts_idx].strip() else 0
+                except (ValueError, IndexError):
+                    pts = 0
+                
+                parsed.append({
+                    "team": row[team_idx] if len(row) > team_idx else "",
+                    "gp": row[gp_idx] if len(row) > gp_idx else "0",
+                    "w": row[w_idx] if len(row) > w_idx else "0",
+                    "d": row[d_idx] if len(row) > d_idx else "0",
+                    "l": row[l_idx] if len(row) > l_idx else "0",
+                    "gf": row[gf_idx] if len(row) > gf_idx else "0",
+                    "ga": row[ga_idx] if len(row) > ga_idx else "0",
+                    "gd": str(int(row[gf_idx] if len(row) > gf_idx and row[gf_idx].strip() else 0) - 
+                             int(row[ga_idx] if len(row) > ga_idx and row[ga_idx].strip() else 0)),
+                    "pts": pts
+                })
 
         # Filter out empty teams and sort
         parsed = [t for t in parsed if t["team"]]
@@ -220,16 +239,18 @@ async def team(ctx, *, team_name: str):
         standings_rows = public_sheet.get_worksheet("GROUP_STAGE")
 
         # ---- Get Player List ----
-        headers = [h.strip().lower() for h in players_rows[3]]  # row 4
-
-        player_col = headers.index("player")
-        team_col = headers.index("team")
-        gp_col = headers.index("gp")
-        goals_col = headers.index("g")
-        assists_col = headers.index("a")
+        # Headers on row 4 (index 3)
+        headers = [h.strip().lower() for h in players_rows[3]]
+        
+        # Column indexes
+        player_col = 2  # Column C
+        team_col = 4    # Column E
+        gp_col = 5      # Column F
+        goals_col = 9   # Column J
+        assists_col = 10 # Column K
 
         players_data = []
-        for row in players_rows[4:]:
+        for row in players_rows[4:]:  # Data starts at row 5
             if len(row) > team_col and row[team_col].strip().lower() == team_name.lower():
                 player_name = row[player_col] if len(row) > player_col else "Unknown"
                 gp = row[gp_col] if len(row) > gp_col else "0"
@@ -242,27 +263,32 @@ async def team(ctx, *, team_name: str):
             return
 
         # ---- Get Team Totals ----
-        headers2 = [h.strip().lower() for h in standings_rows[6]]  # row 7
-        data = standings_rows[7:17]
+        # Headers on row 7 (index 6)
+        headers2 = [h.strip().lower() for h in standings_rows[6]]
+        data = standings_rows[7:]  # Data starts at row 8
 
-        team_idx = headers2.index("team")
+        team_idx = 2  # Column C
         totals = None
         for row in data:
             if len(row) > team_idx and row[team_idx].strip().lower() == team_name.lower():
-                def get(col):
-                    if col in headers2 and len(row) > headers2.index(col):
-                        return row[headers2.index(col)]
-                    return "—"
-
+                # Column indexes for team totals
+                gp = row[4] if len(row) > 4 else "0"   # Column E
+                w = row[5] if len(row) > 5 else "0"    # Column F
+                d = row[6] if len(row) > 6 else "0"    # Column G
+                l = row[7] if len(row) > 7 else "0"    # Column H
+                gf = row[9] if len(row) > 9 else "0"   # Column J
+                ga = row[10] if len(row) > 10 else "0" # Column K
+                pts = row[16] if len(row) > 16 else "0" # Column Q
+                
                 totals = {
-                    "gp": get("gp"),
-                    "w": get("w"),
-                    "d": get("d"),
-                    "l": get("l"),
-                    "gf": get("gf"),
-                    "ga": get("ga"),
-                    "gd": get("gd"),
-                    "pts": get("pts"),
+                    "gp": gp,
+                    "w": w,
+                    "d": d,
+                    "l": l,
+                    "gf": gf,
+                    "ga": ga,
+                    "gd": str(int(gf) - int(ga)) if gf.isdigit() and ga.isdigit() else "0",
+                    "pts": pts,
                 }
                 break
 
@@ -294,33 +320,34 @@ async def topscorers(ctx):
         headers = [h.strip().lower() for h in all_rows[3]]
         data = all_rows[4:]
 
-        # Find column indexes
-        player_idx = headers.index("player")
-        team_idx = headers.index("team")
-        gp_idx = headers.index("gp")
-        g_idx = headers.index("g")
-        a_idx = headers.index("a")
+        # Column indexes
+        player_idx = 2  # Column C
+        team_idx = 4    # Column E
+        gp_idx = 5      # Column F
+        g_idx = 9       # Column J
+        a_idx = 10      # Column K
 
         # Parse players
         parsed = []
         for row in data:
-            try:
-                goals = int(row[g_idx]) if len(row) > g_idx and row[g_idx].isdigit() else 0
-            except Exception:
-                goals = 0
-            try:
-                gp = int(row[gp_idx]) if len(row) > gp_idx and row[gp_idx].isdigit() else 0
-            except Exception:
-                gp = 0
-            assists = row[a_idx] if len(row) > a_idx else "0"
+            if len(row) > player_idx and row[player_idx].strip():  # Only process rows with player names
+                try:
+                    goals = int(row[g_idx]) if len(row) > g_idx and row[g_idx].strip().isdigit() else 0
+                except Exception:
+                    goals = 0
+                try:
+                    gp = int(row[gp_idx]) if len(row) > gp_idx and row[gp_idx].strip().isdigit() else 0
+                except Exception:
+                    gp = 0
+                assists = row[a_idx] if len(row) > a_idx and row[a_idx].strip() else "0"
 
-            parsed.append({
-                "player": row[player_idx] if len(row) > player_idx else "Unknown",
-                "team": row[team_idx] if len(row) > team_idx else "Unknown",
-                "gp": gp,
-                "goals": goals,
-                "assists": assists
-            })
+                parsed.append({
+                    "player": row[player_idx] if len(row) > player_idx else "Unknown",
+                    "team": row[team_idx] if len(row) > team_idx else "Unknown",
+                    "gp": gp,
+                    "goals": goals,
+                    "assists": assists
+                })
 
         # Sort by goals descending, then GP ascending (fewer games = higher rank)
         sorted_players = sorted(parsed, key=lambda x: (-x["goals"], x["gp"]))
@@ -446,33 +473,37 @@ async def assists(ctx):
         headers = [h.strip().lower() for h in all_rows[3]]
         data = all_rows[4:]
 
-        # Find column indexes
-        player_idx = headers.index("player")
-        team_idx = headers.index("team")
-        gp_idx = headers.index("gp")
-        g_idx = headers.index("g")
-        a_idx = headers.index("a")
+        # Column indexes
+        player_idx = 2  # Column C
+        team_idx = 4    # Column E
+        gp_idx = 5      # Column F
+        g_idx = 9       # Column J
+        a_idx = 10      # Column K
 
         # Parse players
         parsed = []
         for row in data:
-            try:
-                assists = int(row[a_idx]) if len(row) > a_idx and row[a_idx].isdigit() else 0
-            except Exception:
-                assists = 0
-            try:
-                gp = int(row[gp_idx]) if len(row) > gp_idx and row[gp_idx].isdigit() else 0
-            except Exception:
-                gp = 0
-            goals = row[g_idx] if len(row) > g_idx else "0"
+            if len(row) > player_idx and row[player_idx].strip():  # Only process rows with player names
+                try:
+                    assists = int(row[a_idx]) if len(row) > a_idx and row[a_idx].strip().isdigit() else 0
+                except Exception:
+                    assists = 0
+                try:
+                    gp = int(row[gp_idx]) if len(row) > gp_idx and row[gp_idx].strip().isdigit() else 0
+                except Exception:
+                    gp = 0
+                try:
+                    goals = int(row[g_idx]) if len(row) > g_idx and row[g_idx].strip().isdigit() else 0
+                except Exception:
+                    goals = 0
 
-            parsed.append({
-                "player": row[player_idx] if len(row) > player_idx else "Unknown",
-                "team": row[team_idx] if len(row) > team_idx else "Unknown",
-                "gp": gp,
-                "goals": int(goals) if str(goals).isdigit() else 0,
-                "assists": assists
-            })
+                parsed.append({
+                    "player": row[player_idx] if len(row) > player_idx else "Unknown",
+                    "team": row[team_idx] if len(row) > team_idx else "Unknown",
+                    "gp": gp,
+                    "goals": goals,
+                    "assists": assists
+                })
 
         # Sort by assists DESC, GP ASC, goals DESC
         sorted_players = sorted(parsed, key=lambda x: (-x["assists"], x["gp"], -x["goals"]))
