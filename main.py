@@ -40,5 +40,3 @@ if not TOKEN:
     raise ValueError("DISCORD_TOKEN not set!")
 
 bot.run(TOKEN)
-
-
