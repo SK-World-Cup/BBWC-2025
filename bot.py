@@ -520,4 +520,28 @@ async def assists(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching assists: {e}")
 
+@bot.command(name="debug_sheet")
+async def debug_sheet(ctx):
+    """Debug command to see the actual sheet structure"""
+    try:
+        all_rows = public_sheet.get_worksheet("GROUP_STAGE")
+        
+        msg = "**GROUP_STAGE Structure:**\n```\n"
+        for i, row in enumerate(all_rows[:20]):  # Show first 20 rows
+            if row:  # Only show non-empty rows
+                preview = str(row)[:100]  # First 100 chars
+                msg += f"Row {i}: {preview}\n"
+        msg += "```"
+        
+        # Also show headers if they exist
+        if len(all_rows) > 6:
+            msg += f"\nRow 7 headers: {all_rows[6]}"
+        if len(all_rows) > 7:
+            msg += f"\nRow 8 data: {all_rows[7][:5]}"  # First 5 columns of first data row
+            
+        await ctx.send(msg)
+        
+    except Exception as e:
+        await ctx.send(f"⚠️ Error: {e}")
+
 print("bot.py loaded")
