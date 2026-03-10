@@ -173,60 +173,79 @@ async def standings(ctx):
     """Shows the tournament standings of every team sorted by points."""
     try:
         all_rows = public_sheet.get_worksheet("GROUP_STAGE")
-
-        # Headers are on row 7 (index 6), data starts at row 8 (index 7)
-        headers = all_rows[6]
-        data = all_rows[7:]
-
-        # Column indexes (0-based)
-        # C7: Team (index 2), E7: GP (index 4), F7: W (index 5), G7: D (index 6), 
-        # H7: L (index 7), J7: GF (index 9), K7: GA (index 10), Q7: PTS (index 16)
-        team_idx = 2   # Column C
-        gp_idx = 4     # Column E
-        w_idx = 5      # Column F
-        d_idx = 6      # Column G
-        l_idx = 7      # Column H
-        gf_idx = 9     # Column J
-        ga_idx = 10    # Column K
-        pts_idx = 16   # Column Q
-
-        # Parse data and sort by PTS descending
+        
+        # Based on your debug output, the real data is in rows 1-9 (0-indexed)
+        # Row 0 has headers, rows 1-9 have the actual team data
+        headers = all_rows[0]  # Row 0 is the header row
+        data = all_rows[1:10]  # Rows 1-9 (9 rows of team data)
+        
+        # Column mappings from your sheet:
+        # C: Team (index 2)
+        # E: GP (index 4)
+        # F: W (index 5)
+        # G: D (index 6)
+        # H: L (index 7)
+        # J: GF (index 9)
+        # We need to calculate PTS (W*3 + D*1)
+        
+        # Parse data
         parsed = []
         for row in data:
-            if len(row) > team_idx and row[team_idx].strip():  # Only process rows with team names
-                try:
-                    pts = int(row[pts_idx]) if len(row) > pts_idx and row[pts_idx].strip() else 0
-                except (ValueError, IndexError):
-                    pts = 0
+            if len(row) < 10:  # Skip incomplete rows
+                continue
+                
+            team_name = row[2].strip()  # Column C
+            if not team_name or team_name.startswith("Table"):  # Skip any "Table..." rows
+                continue
+            
+            try:
+                gp = int(row[4]) if row[4].strip().isdigit() else 0  # Column E
+                w = int(row[5]) if row[5].strip().isdigit() else 0   # Column F
+                d = int(row[6]) if row[6].strip().isdigit() else 0   # Column G
+                l = int(row[7]) if row[7].strip().isdigit() else 0   # Column H
+                gf = int(row[9]) if len(row) > 9 and row[9].strip().isdigit() else 0  # Column J
+                
+                # Calculate GA from GF and GD? We don't have GA directly
+                # For now, we'll show GF only since GA isn't in the data
+                ga = "?"  # We don't have GA in this table
+                gd = "?"  # We don't have GA to calculate GD
+                pts = (w * 3) + d  # Calculate points from wins and draws
                 
                 parsed.append({
-                    "team": row[team_idx] if len(row) > team_idx else "",
-                    "gp": row[gp_idx] if len(row) > gp_idx else "0",
-                    "w": row[w_idx] if len(row) > w_idx else "0",
-                    "d": row[d_idx] if len(row) > d_idx else "0",
-                    "l": row[l_idx] if len(row) > l_idx else "0",
-                    "gf": row[gf_idx] if len(row) > gf_idx else "0",
-                    "ga": row[ga_idx] if len(row) > ga_idx else "0",
-                    "gd": str(int(row[gf_idx] if len(row) > gf_idx and row[gf_idx].strip() else 0) - 
-                             int(row[ga_idx] if len(row) > ga_idx and row[ga_idx].strip() else 0)),
+                    "team": team_name,
+                    "gp": str(gp),
+                    "w": str(w),
+                    "d": str(d),
+                    "l": str(l),
+                    "gf": str(gf),
+                    "ga": "?",  # Not available in this table
+                    "gd": "?",  # Not available in this table
                     "pts": pts
                 })
-
-        # Filter out empty teams and sort
-        parsed = [t for t in parsed if t["team"]]
+            except (ValueError, IndexError) as e:
+                continue  # Skip rows with invalid data
+        
+        if not parsed:
+            await ctx.send("❌ No team data found.")
+            return
+        
+        # Sort by PTS descending
         sorted_data = sorted(parsed, key=lambda x: x["pts"], reverse=True)
-
+        
         # Build leaderboard text
         msg = "**🏆 WORLD CUP 2025 STANDINGS 🏆**\n"
         msg += "```"
-        msg += f"{'Rank':<5}{'Team':<18}{'GP':<4}{'W':<4}{'D':<4}{'L':<4}{'GF':<4}{'GA':<4}{'GD':<5}{'PTS':<5}\n"
-        msg += "-" * 60 + "\n"
-        for i, team in enumerate(sorted_data[:10], start=1):
-            msg += f"{i:<5}{team['team'][:16]:<18}{team['gp']:<4}{team['w']:<4}{team['d']:<4}{team['l']:<4}{team['gf']:<4}{team['ga']:<4}{team['gd']:<5}{team['pts']:<5}\n"
+        msg += f"{'Rank':<5}{'Team':<12}{'GP':<4}{'W':<4}{'D':<4}{'L':<4}{'GF':<4}{'PTS':<5}\n"
+        msg += "-" * 45 + "\n"
+        for i, team in enumerate(sorted_data, start=1):
+            msg += f"{i:<5}{team['team'][:10]:<12}{team['gp']:<4}{team['w']:<4}{team['d']:<4}{team['l']:<4}{team['gf']:<4}{team['pts']:<5}\n"
         msg += "```"
-
+        
+        # Add note about missing stats
+        msg += "\n*Note: GA and GD not available in this table*"
+        
         await ctx.send(msg)
-
+        
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching standings: {e}")
 
@@ -519,60 +538,5 @@ async def assists(ctx):
 
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching assists: {e}")
-
-@bot.command(name="redebug_sheet")
-async def debug_sheet(ctx):
-    """Debug command to see the actual sheet structure (compact version)"""
-    try:
-        all_rows = public_sheet.get_worksheet("GROUP_STAGE")
-        
-        # Send row count first
-        await ctx.send(f"📊 GROUP_STAGE has {len(all_rows)} total rows")
-        
-        # Send headers info in chunks
-        msg = "**Row structure (first 15 rows):**\n```\n"
-        for i in range(min(15, len(all_rows))):
-            row = all_rows[i]
-            # Only show first 3 columns and any column with "Team", "GP", "PTS" etc.
-            preview = []
-            for j, cell in enumerate(row[:10]):  # Look at first 10 columns
-                if cell and str(cell).strip():
-                    cell_str = str(cell).strip()
-                    if len(cell_str) > 15:
-                        cell_str = cell_str[:12] + "..."
-                    preview.append(f"{chr(65+j)}:{cell_str}")  # Show column letter
-            if preview:
-                msg += f"Row {i}: {' | '.join(preview)}\n"
-        
-        msg += "```"
-        
-        # Split if too long
-        if len(msg) > 1900:
-            await ctx.send("First part:")
-            await ctx.send(msg[:1900])
-            await ctx.send("Second part:")
-            await ctx.send(msg[1900:])
-        else:
-            await ctx.send(msg)
-        
-        # Look specifically for rows with team names
-        await ctx.send("**Looking for team data:**")
-        team_rows = []
-        for i, row in enumerate(all_rows):
-            for j, cell in enumerate(row[:10]):  # Check first 10 columns
-                if cell and str(cell).strip() and len(str(cell).strip()) > 2:
-                    cell_upper = str(cell).upper().strip()
-                    # Common team names or header keywords
-                    if cell_upper in ["ASIA", "EUROPE", "USA", "CANADA", "UK", "TEAM", "GP", "PTS"]:
-                        team_rows.append(f"Row {i}, Col {chr(65+j)}: '{cell}'")
-                        break
-        
-        if team_rows:
-            await ctx.send("Potential team/header locations:\n" + "\n".join(team_rows[:10]))
-        else:
-            await ctx.send("No obvious team names found in first 10 columns")
-            
-    except Exception as e:
-        await ctx.send(f"⚠️ Error: {e}")
 
 print("bot.py loaded")
