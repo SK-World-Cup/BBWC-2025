@@ -186,12 +186,12 @@ async def standings(ctx):
         # G: D (index 6)
         # H: L (index 7)
         # J: GF (index 9)
-        # We need to calculate PTS (W*3 + D*1)
+        # K: GA (index 10)
         
         # Parse data
         parsed = []
         for row in data:
-            if len(row) < 10:  # Skip incomplete rows
+            if len(row) < 11:  # Need at least 11 columns for GA (index 10)
                 continue
                 
             team_name = row[2].strip()  # Column C
@@ -199,16 +199,15 @@ async def standings(ctx):
                 continue
             
             try:
-                gp = int(row[4]) if row[4].strip().isdigit() else 0  # Column E
-                w = int(row[5]) if row[5].strip().isdigit() else 0   # Column F
-                d = int(row[6]) if row[6].strip().isdigit() else 0   # Column G
-                l = int(row[7]) if row[7].strip().isdigit() else 0   # Column H
-                gf = int(row[9]) if len(row) > 9 and row[9].strip().isdigit() else 0  # Column J
+                gp = int(row[4]) if row[4].strip().isdigit() else 0   # Column E
+                w = int(row[5]) if row[5].strip().isdigit() else 0    # Column F
+                d = int(row[6]) if row[6].strip().isdigit() else 0    # Column G
+                l = int(row[7]) if row[7].strip().isdigit() else 0    # Column H
+                gf = int(row[9]) if row[9].strip().isdigit() else 0   # Column J
+                ga = int(row[10]) if row[10].strip().isdigit() else 0 # Column K
                 
-                # Calculate GA from GF and GD? We don't have GA directly
-                # For now, we'll show GF only since GA isn't in the data
-                ga = "?"  # We don't have GA in this table
-                gd = "?"  # We don't have GA to calculate GD
+                # Calculate stats
+                gd = gf - ga
                 pts = (w * 3) + d  # Calculate points from wins and draws
                 
                 parsed.append({
@@ -218,8 +217,8 @@ async def standings(ctx):
                     "d": str(d),
                     "l": str(l),
                     "gf": str(gf),
-                    "ga": "?",  # Not available in this table
-                    "gd": "?",  # Not available in this table
+                    "ga": str(ga),
+                    "gd": str(gd),
                     "pts": pts
                 })
             except (ValueError, IndexError) as e:
@@ -235,14 +234,11 @@ async def standings(ctx):
         # Build leaderboard text
         msg = "**🏆 WORLD CUP 2025 STANDINGS 🏆**\n"
         msg += "```"
-        msg += f"{'Rank':<5}{'Team':<12}{'GP':<4}{'W':<4}{'D':<4}{'L':<4}{'GF':<4}{'PTS':<5}\n"
-        msg += "-" * 45 + "\n"
+        msg += f"{'Rank':<5}{'Team':<12}{'GP':<4}{'W':<4}{'D':<4}{'L':<4}{'GF':<4}{'GA':<4}{'GD':<5}{'PTS':<5}\n"
+        msg += "-" * 55 + "\n"
         for i, team in enumerate(sorted_data, start=1):
-            msg += f"{i:<5}{team['team'][:10]:<12}{team['gp']:<4}{team['w']:<4}{team['d']:<4}{team['l']:<4}{team['gf']:<4}{team['pts']:<5}\n"
+            msg += f"{i:<5}{team['team'][:10]:<12}{team['gp']:<4}{team['w']:<4}{team['d']:<4}{team['l']:<4}{team['gf']:<4}{team['ga']:<4}{team['gd']:<5}{team['pts']:<5}\n"
         msg += "```"
-        
-        # Add note about missing stats
-        msg += "\n*Note: GA and GD not available in this table*"
         
         await ctx.send(msg)
         
