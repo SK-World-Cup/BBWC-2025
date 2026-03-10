@@ -1,5 +1,4 @@
 import logging
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,  # or DEBUG for more detail
@@ -10,33 +9,34 @@ import json
 import discord
 from discord.ext import commands
 from threading import Thread
-import gspread
-from google.oauth2.service_account import Credentials
 from time import time, sleep
 import requests
 
-# -------------------- Google Sheets Setup --------------------
-# GOOGLE_CREDS_JSON should be set as a Render environment variable
-creds_json = os.environ.get("GOOGLE_CREDS_JSON")
-if not creds_json:
-    raise ValueError("GOOGLE_CREDS_JSON environment variable not set!")
+# We'll use a hybrid approach - try gspread first, fall back to direct CSV
+class PublicSheet:
+    def __init__(self, sheet_id):
+        self.sheet_id = sheet_id
+        
+    def get_worksheet(self, sheet_name):
+        """Get worksheet data as list of lists"""
+        url = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+        response = requests.get(url)
+        response.raise_for_status()
+        
+        # Parse CSV
+        import csv
+        from io import StringIO
+        
+        csv_data = StringIO(response.text)
+        reader = csv.reader(csv_data)
+        return list(reader)
 
-# Write credentials to a temporary file
-with open("credentials.json", "w") as f:
-    f.write(creds_json)
+# Initialize public sheet access
+SHEET_ID = os.environ.get("SHEET_ID")
+if not SHEET_ID:
+    raise RuntimeError("SHEET_ID not set")
 
-scope = ["https://www.googleapis.com/auth/spreadsheets",
-         "https://www.googleapis.com/auth/drive"]
-
-creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
-gc = gspread.authorize(creds)
-
-# Example: open a sheet by key
-def get_sheet():
-    SHEET_ID = os.environ.get("SHEET_ID")
-    if not SHEET_ID:
-        raise RuntimeError("SHEET_ID not set")
-    return gc.open_by_key(SHEET_ID)
+public_sheet = PublicSheet(SHEET_ID)
 
 # -------------------- Discord Bot Setup --------------------
 TOKEN = os.environ.get("DISCORD_TOKEN")
@@ -124,16 +124,15 @@ async def ping(ctx):
 async def player(ctx, *, name: str):
     """Displays stats for a specific player from the PLAYERS sheet."""
     try:
-        sheet = get_sheet()
-        ws = sheet.worksheet("PLAYERS")
-        data = ws.get_all_values()
-
+        # Get worksheet data
+        all_rows = public_sheet.get_worksheet("PLAYERS")
+        
         # Extract header and rows
-        header = data[0]
-        rows = data[1:]
+        header = all_rows[0]
+        data_rows = all_rows[1:]
 
         # Find the player's row (case-insensitive match)
-        player_row = next((r for r in rows if r[2].strip().lower() == name.lower()), None)
+        player_row = next((r for r in data_rows if len(r) > 2 and r[2].strip().lower() == name.lower()), None)
 
         if not player_row:
             await ctx.send(f"❌ Player '{name}' not found.")
@@ -158,9 +157,7 @@ async def player(ctx, *, name: str):
 async def standings(ctx):
     """Shows the tournament standings of every team sorted by points."""
     try:
-        sheet = get_sheet()
-        sheet_data = sheet.worksheet("GROUP_STAGE")
-        all_rows = sheet_data.get_all_values()
+        all_rows = public_sheet.get_worksheet("GROUP_STAGE")
 
         # Headers and actual data (adjusted to your described structure)
         headers = all_rows[6]   # Row 7 in Sheets (0-index)
@@ -182,20 +179,22 @@ async def standings(ctx):
         for row in data:
             try:
                 pts = int(row[pts_idx])
-            except ValueError:
+            except (ValueError, IndexError):
                 pts = 0
             parsed.append({
-                "team": row[team_idx],
-                "gp": row[gp_idx],
-                "w": row[w_idx],
-                "d": row[d_idx],
-                "l": row[l_idx],
-                "gf": row[gf_idx],
-                "ga": row[ga_idx],
-                "gd": row[gd_idx],
+                "team": row[team_idx] if len(row) > team_idx else "",
+                "gp": row[gp_idx] if len(row) > gp_idx else "0",
+                "w": row[w_idx] if len(row) > w_idx else "0",
+                "d": row[d_idx] if len(row) > d_idx else "0",
+                "l": row[l_idx] if len(row) > l_idx else "0",
+                "gf": row[gf_idx] if len(row) > gf_idx else "0",
+                "ga": row[ga_idx] if len(row) > ga_idx else "0",
+                "gd": row[gd_idx] if len(row) > gd_idx else "0",
                 "pts": pts
             })
 
+        # Filter out empty teams and sort
+        parsed = [t for t in parsed if t["team"]]
         sorted_data = sorted(parsed, key=lambda x: x["pts"], reverse=True)
 
         # Build leaderboard text
@@ -216,13 +215,12 @@ async def standings(ctx):
 async def team(ctx, *, team_name: str):
     """Shows all players from a team with stats and the team's overall totals."""
     try:
-        sheet = get_sheet()
-        players_ws = sheet.worksheet("PLAYERS")
-        standings_ws = sheet.worksheet("GROUP_STAGE")
+        # Get players data
+        players_rows = public_sheet.get_worksheet("PLAYERS")
+        standings_rows = public_sheet.get_worksheet("GROUP_STAGE")
 
         # ---- Get Player List ----
-        all_players = players_ws.get_all_values()
-        headers = [h.strip().lower() for h in all_players[3]]  # row 4
+        headers = [h.strip().lower() for h in players_rows[3]]  # row 4
 
         player_col = headers.index("player")
         team_col = headers.index("team")
@@ -231,9 +229,9 @@ async def team(ctx, *, team_name: str):
         assists_col = headers.index("a")
 
         players_data = []
-        for row in all_players[4:]:
+        for row in players_rows[4:]:
             if len(row) > team_col and row[team_col].strip().lower() == team_name.lower():
-                player_name = row[player_col]
+                player_name = row[player_col] if len(row) > player_col else "Unknown"
                 gp = row[gp_col] if len(row) > gp_col else "0"
                 g = row[goals_col] if len(row) > goals_col else "0"
                 a = row[assists_col] if len(row) > assists_col else "0"
@@ -244,16 +242,17 @@ async def team(ctx, *, team_name: str):
             return
 
         # ---- Get Team Totals ----
-        all_rows = standings_ws.get_all_values()
-        headers2 = [h.strip().lower() for h in all_rows[6]]  # row 7
-        data = all_rows[7:17]
+        headers2 = [h.strip().lower() for h in standings_rows[6]]  # row 7
+        data = standings_rows[7:17]
 
         team_idx = headers2.index("team")
         totals = None
         for row in data:
             if len(row) > team_idx and row[team_idx].strip().lower() == team_name.lower():
                 def get(col):
-                    return row[headers2.index(col)] if col in headers2 else "—"
+                    if col in headers2 and len(row) > headers2.index(col):
+                        return row[headers2.index(col)]
+                    return "—"
 
                 totals = {
                     "gp": get("gp"),
@@ -289,9 +288,7 @@ async def team(ctx, *, team_name: str):
 async def topscorers(ctx):
     """Shows the top 10 goal scorers from the PLAYERS sheet, with GP as tiebreaker."""
     try:
-        sheet = get_sheet()
-        ws = sheet.worksheet("PLAYERS")
-        all_rows = ws.get_all_values()
+        all_rows = public_sheet.get_worksheet("PLAYERS")
 
         # Headers are on row 4 (index 3), data starts at row 5 (index 4)
         headers = [h.strip().lower() for h in all_rows[3]]
@@ -308,18 +305,18 @@ async def topscorers(ctx):
         parsed = []
         for row in data:
             try:
-                goals = int(row[g_idx]) if row[g_idx].isdigit() else 0
+                goals = int(row[g_idx]) if len(row) > g_idx and row[g_idx].isdigit() else 0
             except Exception:
                 goals = 0
             try:
-                gp = int(row[gp_idx]) if row[gp_idx].isdigit() else 0
+                gp = int(row[gp_idx]) if len(row) > gp_idx and row[gp_idx].isdigit() else 0
             except Exception:
                 gp = 0
             assists = row[a_idx] if len(row) > a_idx else "0"
 
             parsed.append({
-                "player": row[player_idx],
-                "team": row[team_idx],
+                "player": row[player_idx] if len(row) > player_idx else "Unknown",
+                "team": row[team_idx] if len(row) > team_idx else "Unknown",
                 "gp": gp,
                 "goals": goals,
                 "assists": assists
@@ -340,15 +337,11 @@ async def topscorers(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching top scorers: {e}")
 
-from gspread.utils import ValueRenderOption
-
 @bot.command(name="matchlink")
 async def matchlink(ctx, team1: str, team2: str):
     """Provides the video link for a match between two teams."""
     try:
-        sheet = get_sheet()
-        ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
-        all_rows = ws.get_all_values()
+        all_rows = public_sheet.get_worksheet("MATCHES")
 
         # Column indexes (0-based: D=3, F=5, Q=16)
         link_idx = 3
@@ -356,28 +349,20 @@ async def matchlink(ctx, team1: str, team2: str):
         team_b_idx = 16
 
         found_row = None
-        for i, row in enumerate(all_rows[1:], start=2):  # start=2 because Sheets rows are 1-based
+        found_data = None
+        
+        for i, row in enumerate(all_rows[1:], start=1):  # skip header
             if len(row) > max(link_idx, team_a_idx, team_b_idx):
                 t_a = row[team_a_idx].strip().lower()
                 t_b = row[team_b_idx].strip().lower()
                 if {t_a, t_b} == {team1.lower(), team2.lower()}:
-                    found_row = i
+                    found_data = row
                     break
 
-        if found_row:
-            # Get the raw formula from column D
-            raw = ws.cell(found_row, link_idx + 1,
-                          value_render_option=ValueRenderOption.formula).value
-
-            link = None
-            if raw and raw.startswith("=HYPERLINK("):
-                # Extract URL between the first pair of quotes
-                link = raw.split('"')[1]
-            else:
-                link = ws.cell(found_row, link_idx + 1).value  # fallback to plain text
-
-            team_a = ws.cell(found_row, team_a_idx + 1).value
-            team_b = ws.cell(found_row, team_b_idx + 1).value
+        if found_data:
+            link = found_data[link_idx] if len(found_data) > link_idx else "No link available"
+            team_a = found_data[team_a_idx] if len(found_data) > team_a_idx else team1
+            team_b = found_data[team_b_idx] if len(found_data) > team_b_idx else team2
 
             msg = f"🎥 {link}\nMatch: **{team_a} vs {team_b}**"
             await ctx.send(msg)
@@ -391,37 +376,41 @@ async def matchlink(ctx, team1: str, team2: str):
 async def matchinfo(ctx, team1: str, team2: str):
     """Shows a 4‑game breakdown between two teams, including players, stats, and scores."""
     try:
-        sheet = get_sheet()
-        ws = sheet.worksheet("MATCHES")  # adjust to your sheet/tab name
-        all_rows = ws.get_all_values()   # one bulk read
+        all_rows = public_sheet.get_worksheet("MATCHES")
 
         team1_col = 5   # F
         team2_col = 16  # Q
 
-        found_row = None
+        found_index = None
         sheet_team1, sheet_team2 = None, None
 
         # Find the row where these two teams meet, regardless of input order
-        for i, row in enumerate(all_rows[1:], start=2):  # skip header
+        for i, row in enumerate(all_rows[1:], start=1):  # skip header
             if len(row) > max(team1_col, team2_col):
                 t1 = row[team1_col].strip().lower()
                 t2 = row[team2_col].strip().lower()
 
                 # Accept either input order
                 if {t1, t2} == {team1.lower(), team2.lower()}:
-                    found_row = i
+                    found_index = i
                     sheet_team1, sheet_team2 = row[team1_col].strip(), row[team2_col].strip()
                     break
 
-        if not found_row:
+        if found_index is None:
             await ctx.send(f"❌ No match found for {team1} vs {team2}")
             return
 
         # Grab 4 consecutive rows (games)
-        row_data = all_rows[found_row-1 : found_row+3]  # Python is 0-based
+        start_idx = found_index
+        end_idx = min(found_index + 4, len(all_rows))
+        row_data = all_rows[start_idx:end_idx]
 
         msg_lines = [f"📊 Match Info: **{sheet_team1} vs {sheet_team2}**\n"]
         for offset, row in enumerate(row_data, start=1):
+            # Ensure row has enough columns
+            if len(row) < 28:
+                continue
+                
             # Team 1 players + stats
             p1, p1g, p1a = row[6], row[7], row[8]
             p2, p2g, p2a = row[9], row[10], row[11]
@@ -451,9 +440,7 @@ async def matchinfo(ctx, team1: str, team2: str):
 async def assists(ctx):
     """Shows the top 10 assist leaders from the PLAYERS sheet, with GP and goals as tiebreakers."""
     try:
-        sheet = get_sheet()
-        ws = sheet.worksheet("PLAYERS")
-        all_rows = ws.get_all_values()
+        all_rows = public_sheet.get_worksheet("PLAYERS")
 
         # Headers are on row 4 (index 3), data starts at row 5 (index 4)
         headers = [h.strip().lower() for h in all_rows[3]]
@@ -470,18 +457,18 @@ async def assists(ctx):
         parsed = []
         for row in data:
             try:
-                assists = int(row[a_idx]) if row[a_idx].isdigit() else 0
+                assists = int(row[a_idx]) if len(row) > a_idx and row[a_idx].isdigit() else 0
             except Exception:
                 assists = 0
             try:
-                gp = int(row[gp_idx]) if row[gp_idx].isdigit() else 0
+                gp = int(row[gp_idx]) if len(row) > gp_idx and row[gp_idx].isdigit() else 0
             except Exception:
                 gp = 0
             goals = row[g_idx] if len(row) > g_idx else "0"
 
             parsed.append({
-                "player": row[player_idx],
-                "team": row[team_idx],
+                "player": row[player_idx] if len(row) > player_idx else "Unknown",
+                "team": row[team_idx] if len(row) > team_idx else "Unknown",
                 "gp": gp,
                 "goals": int(goals) if str(goals).isdigit() else 0,
                 "assists": assists
