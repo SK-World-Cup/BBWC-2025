@@ -520,27 +520,58 @@ async def assists(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching assists: {e}")
 
-@bot.command(name="debug_sheet")
+@bot.command(name="redebug_sheet")
 async def debug_sheet(ctx):
-    """Debug command to see the actual sheet structure"""
+    """Debug command to see the actual sheet structure (compact version)"""
     try:
         all_rows = public_sheet.get_worksheet("GROUP_STAGE")
         
-        msg = "**GROUP_STAGE Structure:**\n```\n"
-        for i, row in enumerate(all_rows[:20]):  # Show first 20 rows
-            if row:  # Only show non-empty rows
-                preview = str(row)[:100]  # First 100 chars
-                msg += f"Row {i}: {preview}\n"
+        # Send row count first
+        await ctx.send(f"📊 GROUP_STAGE has {len(all_rows)} total rows")
+        
+        # Send headers info in chunks
+        msg = "**Row structure (first 15 rows):**\n```\n"
+        for i in range(min(15, len(all_rows))):
+            row = all_rows[i]
+            # Only show first 3 columns and any column with "Team", "GP", "PTS" etc.
+            preview = []
+            for j, cell in enumerate(row[:10]):  # Look at first 10 columns
+                if cell and str(cell).strip():
+                    cell_str = str(cell).strip()
+                    if len(cell_str) > 15:
+                        cell_str = cell_str[:12] + "..."
+                    preview.append(f"{chr(65+j)}:{cell_str}")  # Show column letter
+            if preview:
+                msg += f"Row {i}: {' | '.join(preview)}\n"
+        
         msg += "```"
         
-        # Also show headers if they exist
-        if len(all_rows) > 6:
-            msg += f"\nRow 7 headers: {all_rows[6]}"
-        if len(all_rows) > 7:
-            msg += f"\nRow 8 data: {all_rows[7][:5]}"  # First 5 columns of first data row
-            
-        await ctx.send(msg)
+        # Split if too long
+        if len(msg) > 1900:
+            await ctx.send("First part:")
+            await ctx.send(msg[:1900])
+            await ctx.send("Second part:")
+            await ctx.send(msg[1900:])
+        else:
+            await ctx.send(msg)
         
+        # Look specifically for rows with team names
+        await ctx.send("**Looking for team data:**")
+        team_rows = []
+        for i, row in enumerate(all_rows):
+            for j, cell in enumerate(row[:10]):  # Check first 10 columns
+                if cell and str(cell).strip() and len(str(cell).strip()) > 2:
+                    cell_upper = str(cell).upper().strip()
+                    # Common team names or header keywords
+                    if cell_upper in ["ASIA", "EUROPE", "USA", "CANADA", "UK", "TEAM", "GP", "PTS"]:
+                        team_rows.append(f"Row {i}, Col {chr(65+j)}: '{cell}'")
+                        break
+        
+        if team_rows:
+            await ctx.send("Potential team/header locations:\n" + "\n".join(team_rows[:10]))
+        else:
+            await ctx.send("No obvious team names found in first 10 columns")
+            
     except Exception as e:
         await ctx.send(f"⚠️ Error: {e}")
 
