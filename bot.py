@@ -253,47 +253,56 @@ async def team(ctx, *, team_name: str):
         players_rows = public_sheet.get_worksheet("PLAYERS")
         standings_rows = public_sheet.get_worksheet("GROUP_STAGE")
 
-        # ---- Get Player List ----
-        # Headers on row 4 (index 3)
-        headers = [h.strip().lower() for h in players_rows[3]]
+        # ---- Get Player List from PLAYERS tab ----
+        # Based on your earlier format, PLAYERS tab has:
+        # C4: Players (index 2), E4: TEAM (index 4), F4: GP (index 5), J4: G (index 9), K4: A (index 10)
+        # Data starts at row 5 (index 4)
         
-        # Column indexes
-        player_col = 2  # Column C
-        team_col = 4    # Column E
-        gp_col = 5      # Column F
-        goals_col = 9   # Column J
-        assists_col = 10 # Column K
-
         players_data = []
         for row in players_rows[4:]:  # Data starts at row 5
-            if len(row) > team_col and row[team_col].strip().lower() == team_name.lower():
-                player_name = row[player_col] if len(row) > player_col else "Unknown"
-                gp = row[gp_col] if len(row) > gp_col else "0"
-                g = row[goals_col] if len(row) > goals_col else "0"
-                a = row[assists_col] if len(row) > assists_col else "0"
+            if len(row) < 11:  # Need at least 11 columns
+                continue
+                
+            player_team = row[4].strip() if len(row) > 4 else ""  # Column E
+            if player_team.lower() == team_name.lower():
+                player_name = row[2].strip() if len(row) > 2 else "Unknown"  # Column C
+                gp = row[5].strip() if len(row) > 5 else "0"  # Column F
+                g = row[9].strip() if len(row) > 9 else "0"   # Column J
+                a = row[10].strip() if len(row) > 10 else "0" # Column K
                 players_data.append(f"{player_name}: {gp} GP | {g} G | {a} A")
 
         if not players_data:
             await ctx.send(f"⚠️ No players found for **{team_name}**.")
             return
 
-        # ---- Get Team Totals ----
-        # Headers on row 7 (index 6)
-        headers2 = [h.strip().lower() for h in standings_rows[6]]
-        data = standings_rows[7:]  # Data starts at row 8
-
-        team_idx = 2  # Column C
+        # ---- Get Team Totals from GROUP_STAGE tab ----
+        # Data is in rows 1-9 (0-indexed), with headers in row 0
+        # C: Team (index 2), E: GP (index 4), F: W (index 5), G: D (index 6), 
+        # H: L (index 7), J: GF (index 9), K: GA (index 10)
+        
+        standings_data = standings_rows[1:10]  # Rows 1-9 (actual team data)
+        
         totals = None
-        for row in data:
-            if len(row) > team_idx and row[team_idx].strip().lower() == team_name.lower():
-                # Column indexes for team totals
-                gp = row[4] if len(row) > 4 else "0"   # Column E
-                w = row[5] if len(row) > 5 else "0"    # Column F
-                d = row[6] if len(row) > 6 else "0"    # Column G
-                l = row[7] if len(row) > 7 else "0"    # Column H
-                gf = row[9] if len(row) > 9 else "0"   # Column J
-                ga = row[10] if len(row) > 10 else "0" # Column K
-                pts = row[16] if len(row) > 16 else "0" # Column Q
+        for row in standings_data:
+            if len(row) < 11:
+                continue
+                
+            team = row[2].strip() if len(row) > 2 else ""  # Column C
+            if team.lower() == team_name.lower():
+                gp = row[4].strip() if len(row) > 4 else "0"   # Column E
+                w = row[5].strip() if len(row) > 5 else "0"    # Column F
+                d = row[6].strip() if len(row) > 6 else "0"    # Column G
+                l = row[7].strip() if len(row) > 7 else "0"    # Column H
+                gf = row[9].strip() if len(row) > 9 else "0"   # Column J
+                ga = row[10].strip() if len(row) > 10 else "0" # Column K
+                
+                # Calculate goal difference and points
+                try:
+                    gd = int(gf) - int(ga)
+                    pts = (int(w) * 3) + int(d)
+                except ValueError:
+                    gd = 0
+                    pts = 0
                 
                 totals = {
                     "gp": gp,
@@ -302,8 +311,8 @@ async def team(ctx, *, team_name: str):
                     "l": l,
                     "gf": gf,
                     "ga": ga,
-                    "gd": str(int(gf) - int(ga)) if gf.isdigit() and ga.isdigit() else "0",
-                    "pts": pts,
+                    "gd": str(gd),
+                    "pts": str(pts)
                 }
                 break
 
